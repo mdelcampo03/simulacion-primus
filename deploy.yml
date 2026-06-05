@@ -1,0 +1,39 @@
+name: Deploy to Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar config.js desde secrets
+        run: |
+          cat > config.js <<CFG
+          window.firebaseConfig = {
+            apiKey: "${{ secrets.FB_API_KEY }}",
+            authDomain: "${{ secrets.FB_AUTH_DOMAIN }}",
+            databaseURL: "${{ secrets.FB_DATABASE_URL }}",
+            projectId: "${{ secrets.FB_PROJECT_ID }}",
+            storageBucket: "${{ secrets.FB_STORAGE_BUCKET }}",
+            messagingSenderId: "${{ secrets.FB_SENDER_ID }}",
+            appId: "${{ secrets.FB_APP_ID }}"
+          };
+          CFG
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

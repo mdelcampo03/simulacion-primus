@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cronómetro Hyrox · Tablero</title>
+<style>
+  :root{
+    --bg:#0f1115; --surface:#181b22; --surface2:#20242d; --line:#2c313c;
+    --text:#f2f4f8; --muted:#9aa3b2; --hint:#6b7385;
+    --accent:#1d9e75; --accent-d:#0f6e56;
+    --blue:#378add; --amber:#ef9f27; --red:#e24b4a; --purple:#7f77dd;
+    --radius:12px; --radius-sm:8px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.5}
+  body{padding:0 0 40px}
+  h1,h2,h3{font-weight:600;margin:0}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--radius-sm);font-size:15px}
+  input,select{font-family:inherit;font-size:16px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(15,17,21,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .hbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;max-width:960px;margin:0 auto;gap:10px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:.5px}
+  .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent)}
+  .tabs{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:4px}
+  .tabs button{background:transparent;color:var(--muted);padding:8px 14px;font-weight:600;border-radius:6px;transition:.15s;font-size:14px}
+  .tabs button.active{background:var(--accent);color:#04140f}
+  .syncbar{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 16px;max-width:960px;margin:0 auto}
+  .syncdot{width:9px;height:9px;border-radius:50%;background:var(--hint);flex-shrink:0}
+  .syncdot.on{background:var(--accent)} .syncdot.off{background:var(--red)} .syncdot.local{background:var(--amber)}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:16px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface2);color:var(--muted)}
+
+  .row{display:flex;gap:10px;align-items:center}
+  .field{flex:1}
+  input[type=text],input[type=number],select{width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:var(--radius-sm);padding:11px 12px}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+
+  .btn{padding:11px 18px;font-weight:600;background:var(--surface2);color:var(--text);border:1px solid var(--line)}
+  .btn:hover{border-color:var(--accent)}
+  .btn-primary{background:var(--accent);color:#04140f;border:none}
+  .btn-primary:hover{background:var(--accent-d);color:#fff}
+  .btn-danger{background:transparent;color:var(--red);border:1px solid var(--line)}
+  .btn-sm{padding:7px 12px;font-size:13px}
+  .btn-block{width:100%}
+
+  .athlete-add{display:flex;gap:8px}
+  .athlete-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .a-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px}
+  .a-bib{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:38px}
+  .a-name{flex:1;font-weight:600}
+  .a-cat{font-size:12px;color:var(--muted)}
+
+  .board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 4px;flex-wrap:wrap}
+  .board-head h2{font-size:18px}
+  .filter-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .filter-chips button{background:var(--surface);border:1px solid var(--line);color:var(--muted);padding:6px 12px;font-weight:600;border-radius:999px;font-size:13px}
+  .filter-chips button.active{background:var(--surface2);color:var(--text);border-color:var(--accent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:12px}
+
+  .acard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column}
+  .acard.running.run{border-color:rgba(55,138,221,.55)}
+  .acard.running.station{border-color:rgba(239,159,39,.55)}
+  .acard.finished{opacity:.78}
+  .acard .top{display:flex;align-items:center;gap:10px;padding:12px 14px 8px}
+  .acard .bib{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:15px}
+  .acard .nm{font-weight:700;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .acard .cat{font-size:11px;color:var(--muted);background:var(--surface2);padding:2px 8px;border-radius:999px}
+
+  .acard .seg{display:flex;align-items:center;gap:8px;padding:2px 14px 10px}
+  .seg-badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 10px;border-radius:999px}
+  .seg-badge .ico{font-family:var(--mono);font-weight:700;font-size:11px}
+  .seg-badge.run{background:rgba(55,138,221,.16);color:#85b7eb}
+  .seg-badge.station{background:rgba(239,159,39,.16);color:#fac775}
+  .seg-prog{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  .acard .clockrow{display:flex;align-items:baseline;gap:10px;padding:0 14px 10px}
+  .acard .clk{font-family:var(--mono);font-size:30px;font-weight:700;line-height:1}
+  .acard.run .clk{color:#85b7eb} .acard.station .clk{color:#fac775} .acard.finished .clk{color:var(--text)}
+  .acard .seglast{font-family:var(--mono);font-size:12px;color:var(--hint)}
+
+  .acard .actions{margin-top:auto;display:flex;border-top:1px solid var(--line)}
+  .acard .actions button{flex:1;border:none;border-radius:0;padding:16px 8px;font-weight:700;font-size:15px;background:transparent;color:var(--text)}
+  .mark-btn{background:var(--blue)!important;color:#04203c!important}
+  .mark-btn.station{background:var(--amber)!important;color:#3a2602!important}
+  .mark-btn:active{filter:brightness(1.12)}
+  .start-btn{background:var(--accent)!important;color:#04140f!important}
+  .sec-btn{flex:0 0 auto!important;padding:16px 14px!important;color:var(--muted)!important;border-left:1px solid var(--line)!important}
+  .finish-btn{background:transparent!important;color:var(--purple)!important;flex:0 0 auto!important;padding:16px 14px!important;border-left:1px solid var(--line)!important}
+  .acard.finished .donebar{padding:14px;text-align:center;color:var(--accent);font-weight:700;font-size:14px}
+  .acard.finished .donebar small{display:block;color:var(--muted);font-weight:400;font-family:var(--mono);margin-top:2px}
+
+  .empty{text-align:center;color:var(--hint);padding:40px 16px}
+  .empty .big{font-size:18px;color:var(--muted);font-weight:600;margin-bottom:6px}
+
+  .res-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;user-select:none}
+  th:hover{color:var(--text)}
+  td.t{font-family:var(--mono)}
+  .rank{font-weight:700;color:var(--accent);font-family:var(--mono)}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .splitcell{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(100px);background:var(--accent);color:#04140f;padding:12px 20px;border-radius:999px;font-weight:600;z-index:50;transition:.25s;opacity:0}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .muted-note{font-size:12px;color:var(--hint);margin-top:8px}
+  .banner{background:rgba(239,159,39,.12);border:1px solid var(--amber);color:#fac775;border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;margin:16px 0}
+  .banner code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-family:var(--mono);color:#fff}
+  @media(max-width:520px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <div class="logo"><span class="dot"></span>HYROX · TABLERO</div>
+    <div class="tabs">
+      <button id="t-setup" onclick="go('setup')">Atletas</button>
+      <button id="t-race" class="active" onclick="go('race')">Tablero</button>
+      <button id="t-results" onclick="go('results')">Resultados</button>
+    </div>
+  </div>
+  <div class="syncbar"><span class="syncdot" id="syncDot"></span><span id="syncTxt">Conectando…</span></div>
+</header>
+
+<main class="wrap">
+  <section id="view-setup" style="display:none">
+    <div id="cfgBanner"></div>
+    <div class="card">
+      <h2>Registrar atletas</h2>
+      <p class="sub">El dorsal se asigna solo. Los cambios se sincronizan con la pantalla en vivo.</p>
+      <div class="athlete-add" style="margin-top:14px">
+        <div class="field"><input type="text" id="newName" placeholder="Nombre del atleta" onkeydown="if(event.key==='Enter')addAthlete()"></div>
+        <select id="newCat" style="max-width:130px">
+          <option>Open</option><option>Pro</option><option>Doubles</option><option>Relay</option>
+        </select>
+        <button class="btn-primary" onclick="addAthlete()">Agregar</button>
+      </div>
+      <div class="athlete-list" id="athleteList"></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px">Sesión de carrera</h3>
+      <p class="sub" style="margin-top:8px">Todas las pantallas con el mismo <strong>código de sesión</strong> comparten datos. Cámbialo para un evento nuevo y limpio.</p>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="sessionId" placeholder="ej. sabado-15-jun" onchange="changeSession()">
+        <button class="btn" onclick="changeSession()">Aplicar</button>
+      </div>
+      <p class="muted-note">Usa el mismo código en el leaderboard de la TV.</p>
+    </div>
+  </section>
+
+  <section id="view-race">
+    <div class="board-head">
+      <h2>Tablero de cronometraje</h2>
+      <div class="filter-chips" id="filterChips">
+        <button data-f="active" class="active" onclick="setFilter('active')">Activos</button>
+        <button data-f="waiting" onclick="setFilter('waiting')">Por salir</button>
+        <button data-f="all" onclick="setFilter('all')">Todos</button>
+        <button data-f="finished" onclick="setFilter('finished')">Finalizados</button>
+      </div>
+    </div>
+    <p class="muted-note" id="boardHint">Marca el split del atleta que va cruzando. Cada tarjeta avanza sola al siguiente segmento.</p>
+    <div id="boardBody"></div>
+  </section>
+
+  <section id="view-results" style="display:none">
+    <div class="res-toolbar">
+      <button class="btn btn-sm" onclick="exportCSV()">Exportar CSV</button>
+      <button class="btn btn-sm btn-danger" onclick="resetRace()">Reiniciar tiempos</button>
+      <span class="pill" id="resCount">0 atletas</span>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th onclick="sortRes('rank')">#</th>
+            <th onclick="sortRes('name')">Atleta</th>
+            <th onclick="sortRes('cat')">Cat.</th>
+            <th onclick="sortRes('total')">Tiempo total</th>
+            <th onclick="sortRes('run')">Σ Run</th>
+            <th onclick="sortRes('station')">Σ Estaciones</th>
+            <th>Estado</th>
+          </tr></thead>
+          <tbody id="resBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="resEmpty">Aún no hay tiempos registrados.</div>
+    </div>
+    <p class="muted-note">Toca un atleta para ver el desglose de sus 16 splits.</p>
+    <div id="detailBox"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ===========================================================================
+   PASO 3 — PEGA AQUÍ TUS CREDENCIALES DE FIREBASE (idénticas en leaderboard.html)
+   =========================================================================== */
+const firebaseConfig = {
+   apiKey: "AIzaSyAiOQGVdQddxKqXOL8iuv2-M3wC1p6Ky7w",
+   authDomain: "simulacion-primus.firebaseapp.com",
+   databaseURL: "https://simulacion-primus-default-rtdb.firebaseio.com",
+   projectId: "simulacion-primus",
+   storageBucket: "simulacion-primus.firebasestorage.app",
+   messagingSenderId: "683783449687",
+   appId: "1:683783449687:web:68c2c199b63de748288712",
+   measurementId: "G-BPCWB7Q27C"
+};
+/* =========================================================================== */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, onValue }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const CONFIGURED = !firebaseConfig.apiKey.startsWith("PEGA_");
+let db=null, app=null;
+
+const STATIONS = [
+  "SkiErg 1000m","Sled Push 50m","Sled Pull 50m","Burpee Broad Jump 80m",
+  "Rowing 1000m","Farmers Carry 200m","Sandbag Lunges 100m","Wall Balls x100"
+];
+function buildSteps(){
+  const s=[];
+  for(let i=0;i<8;i++){ s.push({type:"run",label:`Run ${i+1} (1 km)`}); s.push({type:"station",label:STATIONS[i]}); }
+  return s;
+}
+
+let sessionId = localStorage.getItem("hyrox_session") || "sabado";
+let state = loadLocal() || { athletes:[], nextBib:1 };
+let sortKey="total", sortDir=1, applyingRemote=false;
+let boardFilter="active";
+
+function loadLocal(){ try{ return JSON.parse(localStorage.getItem("hyrox_"+sessionId)); }catch(e){ return null; } }
+function saveLocal(){ try{ localStorage.setItem("hyrox_"+sessionId, JSON.stringify(state)); }catch(e){} }
+
+function setSync(cls,txt){ const d=document.getElementById("syncDot"),t=document.getElementById("syncTxt"); d.className="syncdot "+cls; t.textContent=txt; }
+function initFirebase(){
+  if(!CONFIGURED){ setSync("local","Modo local (sin Firebase configurado)"); return; }
+  try{ app=initializeApp(firebaseConfig); db=getDatabase(app); listenRemote(); setSync("on","Sincronizado · sesión: "+sessionId); }
+  catch(e){ console.error(e); setSync("off","Error de conexión — funcionando local"); }
+}
+function dbPath(){ return "sessions/"+sessionId+"/state"; }
+function listenRemote(){
+  if(!db) return;
+  onValue(ref(db, dbPath()), (snap)=>{
+    const val=snap.val();
+    if(val && val.athletes){ applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false; setSync("on","Sincronizado · sesión: "+sessionId); }
+  }, (err)=>{ console.error(err); setSync("off","Sin conexión — guardando local"); });
+}
+function push(){ saveLocal(); if(db && !applyingRemote){ set(ref(db, dbPath()), state).catch(e=>{ console.error(e); setSync("off","Reintentando…"); }); } }
+
+function go(v){
+  ["setup","race","results"].forEach(x=>{ document.getElementById("view-"+x).style.display = x===v?"block":"none"; document.getElementById("t-"+x).classList.toggle("active", x===v); });
+  if(v==="race") renderBoard();
+  if(v==="results") renderResults();
+}
+function renderAll(){ renderAthletes(); renderBoard(); renderResults(); }
+function changeSession(){
+  const v=document.getElementById("sessionId").value.trim().toLowerCase().replace(/[^a-z0-9\-]/g,"-");
+  if(!v) return;
+  sessionId=v; localStorage.setItem("hyrox_session",sessionId);
+  state=loadLocal()||{athletes:[],nextBib:1};
+  if(db){ listenRemote(); }
+  setSync(CONFIGURED?"on":"local",(CONFIGURED?"Sincronizado":"Modo local")+" · sesión: "+sessionId);
+  renderAll(); toast("Sesión: "+sessionId);
+}
+
+function addAthlete(){
+  const name=document.getElementById("newName").value.trim();
+  if(!name){ toast("Escribe un nombre"); return; }
+  const cat=document.getElementById("newCat").value;
+  state.athletes.push({ bib:state.nextBib++, name, cat, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
+  document.getElementById("newName").value=""; push(); renderAthletes(); document.getElementById("newName").focus();
+}
+function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib); push(); renderAthletes(); }
+function renderAthletes(){
+  const el=document.getElementById("athleteList"); if(!el) return;
+  if(!state.athletes.length){ el.innerHTML='<p class="sub" style="text-align:center;padding:14px 0">Sin atletas todavía.</p>'; return; }
+  el.innerHTML=state.athletes.map(a=>`<div class="a-item"><span class="a-bib">#${a.bib}</span><span class="a-name">${esc(a.name)}</span><span class="a-cat">${a.cat}</span><button class="btn btn-sm btn-danger" onclick="removeAthlete(${a.bib})">Quitar</button></div>`).join("");
+}
+
+function fmt(ms){ if(ms==null)return"—"; const t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=t%60,cs=Math.floor((ms%1000)/10); return (h>0?h+":":"")+String(m).padStart(h>0?2:1,"0")+":"+String(s).padStart(2,"0")+"."+String(cs).padStart(2,"0"); }
+function clk(ms){ if(ms==null)return"0:00"; const t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=t%60; return (h>0?h+":"+String(m).padStart(2,"0"):m)+":"+String(s).padStart(2,"0"); }
+function fmtShort(ms){ if(ms==null)return"—"; const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60; return m+":"+String(s).padStart(2,"0"); }
+function liveElapsed(a){ return a.elapsed+(a.running&&a.startTs?Date.now()-a.startTs:0); }
+function g(bib){ return state.athletes.find(x=>x.bib===bib); }
+function sumPrev(a,idx){ let s=0; for(let i=0;i<idx;i++) s+=(a.steps[i].ms||0); return s; }
+
+function setFilter(f){ boardFilter=f; document.querySelectorAll("#filterChips button").forEach(b=>b.classList.toggle("active",b.dataset.f===f)); renderBoard(); }
+function athleteStatus(a){ if(a.finished) return "finished"; if(a.running || a.elapsed>0) return "active"; return "waiting"; }
+function filteredAthletes(){
+  return state.athletes.filter(a=>{
+    const st=athleteStatus(a);
+    if(boardFilter==="all") return true;
+    if(boardFilter==="active") return st==="active";
+    if(boardFilter==="waiting") return st==="waiting";
+    if(boardFilter==="finished") return st==="finished";
+    return true;
+  });
+}
+function renderBoard(){
+  const body=document.getElementById("boardBody"); if(!body) return;
+  if(!state.athletes.length){ body.innerHTML='<div class="empty"><div class="big">Sin atletas todavía</div>Regístralos en la pestaña «Atletas».</div>'; return; }
+  const list=filteredAthletes();
+  if(!list.length){
+    const labels={active:"activos",waiting:"por salir",finished:"finalizados",all:""};
+    body.innerHTML=`<div class="empty"><div class="big">No hay atletas ${labels[boardFilter]||""}</div>Cambia de filtro arriba.</div>`; return;
+  }
+  body.innerHTML='<div class="grid">'+list.map(cardHtml).join("")+'</div>';
+}
+function cardHtml(a){
+  const st=athleteStatus(a);
+  const cur=a.steps[a.idx];
+  const isStation=cur&&cur.type==="station";
+  const typeCls=a.finished?"finished":(isStation?"station":"run");
+  const segNum = cur ? (Math.floor(a.idx/2)+1) : 8;
+  const segIco = cur ? (cur.type==="run"?"R"+segNum:"E"+segNum) : "";
+  const lastMs = a.idx>0 ? a.steps[a.idx-1].ms : null;
+
+  let segArea;
+  if(a.finished){
+    segArea=`<div class="seg"><span class="seg-badge" style="background:rgba(127,119,221,.16);color:#aaa3ec"><i class="ico">✓</i> Finalizó</span><span class="seg-prog">16/16</span></div>`;
+  }else if(st==="waiting"){
+    segArea=`<div class="seg"><span class="seg-badge" style="background:var(--surface2);color:var(--muted)">Por salir</span><span class="seg-prog">0/16</span></div>`;
+  }else{
+    segArea=`<div class="seg"><span class="seg-badge ${cur.type}"><i class="ico">${segIco}</i> ${esc(cur.label)}</span><span class="seg-prog">${a.idx}/16</span></div>`;
+  }
+
+  let clockArea;
+  if(st==="active"){
+    clockArea=`<div class="clockrow"><span class="clk" data-bib="${a.bib}">${clk(liveElapsed(a))}</span>${lastMs!=null?`<span class="seglast">últ. ${fmtShort(lastMs)}</span>`:""}</div>`;
+  }else if(a.finished){
+    clockArea=`<div class="clockrow"><span class="clk">${clk(liveElapsed(a))}</span><span class="seglast">total</span></div>`;
+  }else{
+    clockArea=`<div class="clockrow"><span class="clk" style="color:var(--hint)">0:00</span><span class="seglast">listo para iniciar</span></div>`;
+  }
+
+  let actions;
+  if(a.finished){
+    actions=`<div class="donebar">Carrera completa<small>Run ${fmtShort(runMs(a))} · Estac. ${fmtShort(stationMs(a))}</small></div>`;
+  }else if(st==="waiting"){
+    actions=`<div class="actions"><button class="start-btn" onclick="startRun(${a.bib})">▶ Iniciar</button></div>`;
+  }else{
+    actions=`<div class="actions">
+      <button class="mark-btn ${isStation?'station':''}" onclick="lap(${a.bib})">Marcar ${a.idx+1}/16</button>
+      ${a.running?`<button class="sec-btn" onclick="pauseRun(${a.bib})" title="Pausar">⏸</button>`:`<button class="sec-btn" onclick="resumeRun(${a.bib})" title="Reanudar">▶</button>`}
+      <button class="finish-btn" onclick="confirmFinish(${a.bib})" title="Finalizar">🏁</button>
+    </div>`;
+  }
+
+  return `<div class="acard ${st==='active'?'running':''} ${typeCls}">
+    <div class="top"><span class="bib">#${a.bib}</span><span class="nm">${esc(a.name)}</span><span class="cat">${a.cat}</span></div>
+    ${segArea}${clockArea}${actions}
+  </div>`;
+}
+
+function startRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; push(); renderBoard(); }
+function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; push(); renderBoard(); }
+function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; push(); renderBoard(); }
+function lap(bib){
+  const a=g(bib);
+  if(!a.running){ if(a.elapsed>0){ resumeRun(bib); } else { startRun(bib); } return; }
+  const el=liveElapsed(a);
+  a.steps[a.idx].ms = el - (a.idx>0?sumPrev(a,a.idx):0);
+  a.idx++;
+  if(a.idx>=a.steps.length){ a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; toast(`#${a.bib} ${a.name.split(' ')[0]} finalizó`); }
+  push(); renderBoard();
+}
+function confirmFinish(bib){
+  const a=g(bib);
+  if(!confirm(`¿Finalizar a #${a.bib} ${a.name} ahora? Quedan ${16-a.idx} segmentos sin marcar.`)) return;
+  const el=liveElapsed(a);
+  if(a.running && a.idx<a.steps.length){ a.steps[a.idx].ms=el-sumPrev(a,a.idx); a.idx++; }
+  a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; push(); toast(`#${a.bib} finalizó`); renderBoard();
+}
+
+setInterval(()=>{
+  document.querySelectorAll(".clk[data-bib]").forEach(el=>{
+    const a=g(parseInt(el.dataset.bib,10));
+    if(a && a.running) el.textContent=clk(liveElapsed(a));
+  });
+},200);
+
+function totalMs(a){ return a.steps.reduce((s,x)=>s+(x.ms||0),0); }
+function runMs(a){ return a.steps.filter(x=>x.type==="run").reduce((s,x)=>s+(x.ms||0),0); }
+function stationMs(a){ return a.steps.filter(x=>x.type==="station").reduce((s,x)=>s+(x.ms||0),0); }
+function hasTimes(a){ return a.steps.some(x=>x.ms!=null); }
+function sortRes(k){ if(sortKey===k) sortDir*=-1; else {sortKey=k;sortDir=1;} renderResults(); }
+function renderResults(){
+  const list=state.athletes.filter(hasTimes);
+  const rc=document.getElementById("resCount"); if(rc) rc.textContent=list.length+" atletas";
+  const body=document.getElementById("resBody"), empty=document.getElementById("resEmpty"); if(!body) return;
+  if(!list.length){ body.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  const finished=list.filter(a=>a.finished).sort((x,y)=>totalMs(x)-totalMs(y));
+  list.forEach(a=>a._rank=a.finished?finished.indexOf(a)+1:999);
+  const sorted=[...list].sort((a,b)=>{
+    let va,vb; switch(sortKey){
+      case "name":va=a.name.toLowerCase();vb=b.name.toLowerCase();break;
+      case "cat":va=a.cat;vb=b.cat;break;
+      case "run":va=runMs(a);vb=runMs(b);break;
+      case "station":va=stationMs(a);vb=stationMs(b);break;
+      case "rank":va=a._rank;vb=b._rank;break;
+      default:va=totalMs(a);vb=totalMs(b);
+    }
+    if(va<vb)return -1*sortDir; if(va>vb)return 1*sortDir; return 0;
+  });
+  body.innerHTML=sorted.map(a=>`<tr>
+    <td class="rank">${a.finished?a._rank:"–"}</td>
+    <td><a href="#" onclick="showDetail(${a.bib});return false" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--muted)">#${a.bib} ${esc(a.name)}</a></td>
+    <td>${a.cat}</td><td class="t">${fmt(totalMs(a))}</td><td class="t">${fmtShort(runMs(a))}</td><td class="t">${fmtShort(stationMs(a))}</td>
+    <td>${a.finished?'<span class="pill" style="background:rgba(29,158,117,.15);color:#5dcaa5">Final</span>':'<span class="pill" style="background:rgba(239,159,39,.15);color:#fac775">En curso</span>'}</td></tr>`).join("");
+}
+function showDetail(bib){
+  const a=g(bib);
+  const rows=a.steps.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.label)}</td><td class="splitcell">${s.ms!=null?fmtShort(s.ms):"—"}</td></tr>`).join("");
+  document.getElementById("detailBox").innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="font-size:15px">#${a.bib} ${esc(a.name)} · desglose</h3><button class="btn btn-sm" onclick="document.getElementById('detailBox').innerHTML=''">Cerrar</button></div><div class="table-scroll" style="margin-top:10px"><table><thead><tr><th>#</th><th>Segmento</th><th>Split</th></tr></thead><tbody>${rows}</tbody></table></div><p class="sub" style="margin-top:10px">Total: <strong>${fmt(totalMs(a))}</strong> · Run: ${fmtShort(runMs(a))} · Estaciones: ${fmtShort(stationMs(a))}</p></div>`;
+  document.getElementById("detailBox").scrollIntoView({behavior:"smooth"});
+}
+function exportCSV(){
+  const list=state.athletes.filter(hasTimes);
+  if(!list.length){ toast("No hay datos para exportar"); return; }
+  const head=["Dorsal","Nombre","Categoria","Tiempo_total","Suma_run","Suma_estaciones","Estado"];
+  buildSteps().forEach((s,i)=>head.push(`S${i+1}_${s.label.replace(/[, ]+/g,"_")}`));
+  const rows=[head.join(",")];
+  list.forEach(a=>{ const r=[a.bib,`"${a.name}"`,a.cat,fmt(totalMs(a)),fmtShort(runMs(a)),fmtShort(stationMs(a)),a.finished?"Final":"En_curso"]; a.steps.forEach(s=>r.push(s.ms!=null?fmtShort(s.ms):"")); rows.push(r.join(",")); });
+  const blob=new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob), link=document.createElement("a");
+  link.href=url; link.download="resultados_hyrox_"+sessionId+"_"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(link); link.click(); link.remove(); toast("CSV exportado");
+}
+function resetRace(){
+  if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
+  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0; });
+  push(); renderResults(); renderBoard(); toast("Tiempos reiniciados");
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+let toastT;
+function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),1800); }
+function renderConfigBanner(){
+  const b=document.getElementById("cfgBanner"); if(!b) return;
+  if(CONFIGURED){ b.innerHTML=""; return; }
+  b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar con la TV, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
+}
+
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace});
+
+document.getElementById("sessionId").value=sessionId;
+renderConfigBanner();
+renderAll();
+initFirebase();
+</script>
+</body>
+</html>
