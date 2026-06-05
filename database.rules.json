@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "sessions": {
+      "$sid": {
+        ".read": true,
+        "state": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChild('athletes')"
+        }
+      }
+    }
+  }
+}
