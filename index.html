@@ -60,6 +60,15 @@
 
   .board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 4px;flex-wrap:wrap}
   .board-head h2{font-size:18px}
+  .board-stats{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px}
+  .stat{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:13px;color:var(--muted)}
+  .stat strong{color:var(--text);font-size:15px;font-variant-numeric:tabular-nums}
+  .stat .dot{width:9px;height:9px;border-radius:50%;background:var(--hint)}
+  .stat .dot.wait{background:var(--amber)}
+  .stat .dot.fin{background:var(--accent)}
+  .stat-track{border-color:rgba(55,138,221,.5)}
+  .stat-track .dot{background:var(--blue);box-shadow:0 0 8px var(--blue);animation:pulse 1.4s infinite}
+  .stat-track strong{color:#85b7eb}
   .filter-chips{display:flex;gap:6px;flex-wrap:wrap}
   .filter-chips button{background:var(--surface);border:1px solid var(--line);color:var(--muted);padding:6px 12px;font-weight:600;border-radius:999px;font-size:13px}
   .filter-chips button.active{background:var(--surface2);color:var(--text);border-color:var(--accent)}
@@ -216,6 +225,7 @@
         <button data-f="finished" onclick="setFilter('finished')">Finalizados</button>
       </div>
     </div>
+    <div class="board-stats" id="boardStats"></div>
     <p class="muted-note">Marca el split del atleta que va cruzando. Cada tarjeta avanza sola al siguiente segmento. Para salir en grupo, marca la casilla de los atletas «Por salir» y usa «Iniciar tanda».</p>
     <div class="wavebar" id="waveBar"></div>
     <div id="boardBody"></div>
@@ -382,6 +392,7 @@ function filteredAthletes(){
 }
 function renderBoard(){
   const body=document.getElementById("boardBody"); if(!body) return;
+  renderStats();
   renderWaveBar();
   if(!state.athletes.length){ body.innerHTML='<div class="empty"><div class="big">Sin atletas todavía</div>Regístralos en la pestaña «Atletas».</div>'; return; }
   const list=filteredAthletes();
@@ -446,6 +457,16 @@ function startWave(){
   const n=grupo.length;
   waveSel.clear(); push(); renderBoard();
   toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez");
+}
+function renderStats(){
+  const el=document.getElementById("boardStats"); if(!el) return;
+  if(!state.athletes.length){ el.style.display="none"; el.innerHTML=""; return; }
+  let track=0,wait=0,fin=0;
+  state.athletes.forEach(a=>{ const s=athleteStatus(a); if(s==="finished")fin++; else if(s==="waiting")wait++; else track++; });
+  el.style.display="flex";
+  el.innerHTML=`<span class="stat stat-track"><span class="dot"></span><strong>${track}</strong> en pista</span>
+    <span class="stat"><span class="dot wait"></span><strong>${wait}</strong> por salir</span>
+    <span class="stat"><span class="dot fin"></span><strong>${fin}</strong> finalizados</span>`;
 }
 function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; push(); renderBoard(); }
 function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; push(); renderBoard(); }
