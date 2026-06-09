@@ -90,6 +90,14 @@
   .mark-btn.station{background:var(--amber)!important;color:#3a2602!important}
   .mark-btn:active{filter:brightness(1.12)}
   .start-btn{background:var(--accent)!important;color:#04140f!important}
+  .wave-check{width:26px;height:26px;flex:0 0 auto;border-radius:7px;border:2px solid var(--line);background:var(--surface2);color:#04140f;font-weight:800;font-size:14px;display:inline-flex;align-items:center;justify-content:center;padding:0}
+  .wave-check.on{background:var(--accent);border-color:var(--accent)}
+  .acard.sel{border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent) inset}
+  .wavebar{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:10px 14px;margin:10px 0}
+  .wavebar .wave-info{font-size:14px;color:var(--muted)}
+  .wavebar .wave-info strong{color:var(--accent);font-size:16px}
+  .wave-start{margin-left:auto;padding:9px 16px;font-weight:700;background:var(--accent);color:#04140f;border:none}
+  .wave-start:hover{background:var(--accent-d);color:#fff}
   .sec-btn{flex:0 0 auto!important;padding:16px 14px!important;color:var(--muted)!important;border-left:1px solid var(--line)!important}
   .finish-btn{background:transparent!important;color:var(--purple)!important;flex:0 0 auto!important;padding:16px 14px!important;border-left:1px solid var(--line)!important}
   .acard.finished .donebar{padding:14px;text-align:center;color:var(--accent);font-weight:700;font-size:14px}
@@ -208,7 +216,8 @@
         <button data-f="finished" onclick="setFilter('finished')">Finalizados</button>
       </div>
     </div>
-    <p class="muted-note">Marca el split del atleta que va cruzando. Cada tarjeta avanza sola al siguiente segmento.</p>
+    <p class="muted-note">Marca el split del atleta que va cruzando. Cada tarjeta avanza sola al siguiente segmento. Para salir en grupo, marca la casilla de los atletas «Por salir» y usa «Iniciar tanda».</p>
+    <div class="wavebar" id="waveBar"></div>
     <div id="boardBody"></div>
   </section>
 
@@ -290,6 +299,7 @@ let sessionId = localStorage.getItem("hyrox_session") || "sabado";
 let state = loadLocal() || { athletes:[], nextBib:1 };
 let sortKey="total", sortDir=1, applyingRemote=false;
 let boardFilter="active", currentView="race";
+let waveSel=new Set();  // selección local de atletas para iniciar en tanda (no se sincroniza)
 
 function loadLocal(){ try{ return JSON.parse(localStorage.getItem("hyrox_"+sessionId)); }catch(e){ return null; } }
 function saveLocal(){ try{ localStorage.setItem("hyrox_"+sessionId, JSON.stringify(state)); }catch(e){} }
@@ -372,6 +382,7 @@ function filteredAthletes(){
 }
 function renderBoard(){
   const body=document.getElementById("boardBody"); if(!body) return;
+  renderWaveBar();
   if(!state.athletes.length){ body.innerHTML='<div class="empty"><div class="big">Sin atletas todavía</div>Regístralos en la pestaña «Atletas».</div>'; return; }
   const list=filteredAthletes();
   if(!list.length){
@@ -404,13 +415,38 @@ function cardHtml(a){
       ${a.running?`<button class="sec-btn" onclick="pauseRun(${a.bib})" title="Pausar">⏸</button>`:`<button class="sec-btn" onclick="resumeRun(${a.bib})" title="Reanudar">▶</button>`}
       <button class="finish-btn" onclick="confirmFinish(${a.bib})" title="Finalizar">🏁</button>
     </div>`; }
-  return `<div class="acard ${st==='active'?'running':''} ${typeCls}">
-    <div class="top"><span class="bib">#${a.bib}</span><span class="nm">${esc(a.name)}</span><span class="cat">${a.cat}</span></div>
+  const isWaiting=st==="waiting";
+  const sel=isWaiting&&waveSel.has(a.bib);
+  const selChk=isWaiting?`<button class="wave-check ${sel?'on':''}" onclick="toggleWave(${a.bib})" title="Agregar a la tanda">${sel?'✓':''}</button>`:"";
+  return `<div class="acard ${st==='active'?'running':''} ${typeCls} ${sel?'sel':''}">
+    <div class="top">${selChk}<span class="bib">#${a.bib}</span><span class="nm">${esc(a.name)}</span><span class="cat">${a.cat}</span></div>
     ${segArea}${clockArea}${actions}
   </div>`;
 }
 
 function startRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; push(); renderBoard(); }
+function toggleWave(bib){ if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
+function clearWave(){ waveSel.clear(); renderBoard(); }
+function renderWaveBar(){
+  const bar=document.getElementById("waveBar"); if(!bar) return;
+  // descartar selecciones que ya no estén «Por salir» (iniciaron solas, se quitaron, etc.)
+  [...waveSel].forEach(b=>{ const a=g(b); if(!a || athleteStatus(a)!=="waiting") waveSel.delete(b); });
+  const n=waveSel.size;
+  if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
+  bar.style.display="flex";
+  bar.innerHTML=`<span class="wave-info"><strong>${n}</strong> seleccionado${n>1?'s':''} para la tanda</span>
+    <button class="btn btn-sm" onclick="clearWave()">Limpiar</button>
+    <button class="wave-start" onclick="startWave()">▶ Iniciar tanda (${n})</button>`;
+}
+function startWave(){
+  const grupo=state.athletes.filter(a=>waveSel.has(a.bib)&&athleteStatus(a)==="waiting");
+  if(!grupo.length){ toast("Selecciona atletas por salir"); return; }
+  const ts=Date.now();  // mismo timestamp para toda la tanda: salida idéntica
+  grupo.forEach(a=>{ a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
+  const n=grupo.length;
+  waveSel.clear(); push(); renderBoard();
+  toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez");
+}
 function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; push(); renderBoard(); }
 function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; push(); renderBoard(); }
 function lap(bib){
@@ -579,7 +615,7 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
