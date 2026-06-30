@@ -180,8 +180,8 @@
   <div class="hbar">
     <div class="logo"><span class="dot"></span>HYROX</div>
     <div class="tabs">
-      <button id="t-setup" onclick="go('setup')">Atletas</button>
-      <button id="t-race" class="active" onclick="go('race')">Tablero</button>
+      <button id="t-setup" class="active" onclick="go('setup')">Atletas</button>
+      <button id="t-race" onclick="go('race')">Tablero</button>
       <button id="t-results" onclick="go('results')">Resultados</button>
       <button id="t-tv" onclick="go('tv')">Pantalla TV</button>
     </div>
@@ -190,7 +190,7 @@
 </header>
 
 <main class="wrap">
-  <section id="view-setup" style="display:none">
+  <section id="view-setup">
     <div id="cfgBanner"></div>
     <div class="card">
       <h2>Registrar atletas</h2>
@@ -215,7 +215,7 @@
     </div>
   </section>
 
-  <section id="view-race">
+  <section id="view-race" style="display:none">
     <div class="board-head">
       <h2>Tablero de cronometraje</h2>
       <div class="filter-chips" id="filterChips">
@@ -308,7 +308,7 @@ function buildSteps(){
 let sessionId = localStorage.getItem("hyrox_session") || "sabado";
 let state = loadLocal() || { athletes:[], nextBib:1 };
 let sortKey="total", sortDir=1, applyingRemote=false;
-let boardFilter="active", currentView="race";
+let boardFilter="active", currentView="setup";
 let waveSel=new Set();  // selección local de atletas para iniciar en tanda (no se sincroniza)
 
 function loadLocal(){ try{ return JSON.parse(localStorage.getItem("hyrox_"+sessionId)); }catch(e){ return null; } }
