@@ -52,6 +52,7 @@
   .btn-block{width:100%}
 
   .athlete-add{display:flex;gap:8px}
+  .import-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .athlete-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
   .a-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px}
   .a-bib{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:38px}
@@ -202,6 +203,12 @@
         </select>
         <button class="btn-primary" onclick="addAthlete()">Agregar</button>
       </div>
+      <div class="import-row">
+        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importAthletes(event)">
+        <button class="btn btn-sm" onclick="triggerImport()">⬆ Importar Excel/CSV</button>
+        <button class="btn btn-sm" onclick="downloadTemplate()">Descargar plantilla</button>
+      </div>
+      <p class="muted-note">Carga masiva: sube un archivo con una columna <strong>Nombre</strong> y, opcional, <strong>Categoría</strong> (Open, Pro, Doubles, Relay). Sin categoría se asigna Open. Acepta .xlsx, .xls y .csv.</p>
       <div class="athlete-list" id="athleteList"></div>
     </div>
     <div class="card">
@@ -628,6 +635,76 @@ function openTvWindow(){
 }
 
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- Carga masiva de atletas (Excel/CSV) ---------- */
+let _xlsxP=null;
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(_xlsxP) return _xlsxP;
+  _xlsxP=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload=()=>window.XLSX?res(window.XLSX):rej(new Error("XLSX no disponible"));
+    s.onerror=()=>{ _xlsxP=null; rej(new Error("No se pudo cargar la librería de Excel")); };
+    document.head.appendChild(s);
+  });
+  return _xlsxP;
+}
+function normCat(v){
+  const t=String(v==null?"":v).trim().toLowerCase();
+  if(/pro/.test(t)) return "Pro";
+  if(/double|doble/.test(t)) return "Doubles";
+  if(/relay|relevo/.test(t)) return "Relay";
+  return "Open";
+}
+function triggerImport(){ document.getElementById("importFile").click(); }
+async function importAthletes(ev){
+  const file=ev.target.files&&ev.target.files[0];
+  ev.target.value="";   // permite re-seleccionar el mismo archivo
+  if(!file) return;
+  toast("Leyendo archivo…");
+  let XLSX;
+  try{ XLSX=await loadXLSX(); }
+  catch(e){ console.error(e); toast("No se pudo cargar la librería de Excel (¿sin internet?)"); return; }
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    if(!ws){ toast("El archivo no tiene hojas"); return; }
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:""});
+    if(!rows.length){ toast("El archivo está vacío"); return; }
+    let nameCol=0, catCol=1, start=0;
+    const first=(rows[0]||[]).map(c=>String(c).trim().toLowerCase());
+    const hasHeader=first.some(c=>/nombre|name|atleta/.test(c)) || first.some(c=>/categor|division|^cat$/.test(c));
+    if(hasHeader){
+      start=1;
+      const ni=first.findIndex(c=>/nombre|name|atleta/.test(c));
+      const ci=first.findIndex(c=>/categor|division|^cat$/.test(c));
+      if(ni>=0) nameCol=ni;
+      if(ci>=0) catCol=ci;
+    }
+    let added=0;
+    for(let i=start;i<rows.length;i++){
+      const r=rows[i]||[];
+      const name=String(r[nameCol]==null?"":r[nameCol]).trim();
+      if(!name) continue;
+      const cat=normCat(r[catCol]);
+      state.athletes.push({ bib:state.nextBib++, name, cat, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
+      added++;
+    }
+    if(!added){ toast("No se encontraron nombres en el archivo"); return; }
+    push(); renderAthletes();
+    toast(added+" atleta"+(added>1?"s":"")+" importado"+(added>1?"s":""));
+  }catch(e){ console.error(e); toast("No se pudo leer el archivo"); }
+}
+function downloadTemplate(){
+  const csv="\ufeffNombre,Categoria\nJuan Pérez,Open\nMaría López,Pro\nEquipo A,Doubles\n";
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob), link=document.createElement("a");
+  link.href=url; link.download="plantilla_atletas_hyrox.csv";
+  document.body.appendChild(link); link.click(); link.remove();
+  toast("Plantilla descargada");
+}
 let toastT;
 function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),1800); }
 function renderConfigBanner(){
@@ -636,7 +713,7 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes,downloadTemplate});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
