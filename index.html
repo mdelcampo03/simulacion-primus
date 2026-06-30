@@ -206,7 +206,7 @@
       <div class="import-row">
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importAthletes(event)">
         <button class="btn btn-sm" onclick="triggerImport()">⬆ Importar Excel/CSV</button>
-        <button class="btn btn-sm" onclick="downloadTemplate()">Descargar plantilla</button>
+        <a class="btn btn-sm" href="plantilla_atletas_hyrox.xlsx" download style="text-decoration:none;display:inline-flex;align-items:center">Descargar plantilla (Excel)</a>
       </div>
       <p class="muted-note">Carga masiva: sube un archivo con una columna <strong>Nombre</strong> y, opcional, <strong>Categoría</strong> (Open, Pro, Doubles, Relay). Sin categoría se asigna Open. Acepta .xlsx, .xls y .csv.</p>
       <div class="athlete-list" id="athleteList"></div>
@@ -697,14 +697,6 @@ async function importAthletes(ev){
     toast(added+" atleta"+(added>1?"s":"")+" importado"+(added>1?"s":""));
   }catch(e){ console.error(e); toast("No se pudo leer el archivo"); }
 }
-function downloadTemplate(){
-  const csv="\ufeffNombre,Categoria\nJuan Pérez,Open\nMaría López,Pro\nEquipo A,Doubles\n";
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const url=URL.createObjectURL(blob), link=document.createElement("a");
-  link.href=url; link.download="plantilla_atletas_hyrox.csv";
-  document.body.appendChild(link); link.click(); link.remove();
-  toast("Plantilla descargada");
-}
 let toastT;
 function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),1800); }
 function renderConfigBanner(){
@@ -713,7 +705,7 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes,downloadTemplate});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
