@@ -561,16 +561,20 @@ function renderResults(){
 function showDetail(bib){
   const a=g(bib);
   const rows=a.steps.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.label)}</td><td class="splitcell">${s.ms!=null?fmtShort(s.ms):"—"}</td></tr>`).join("");
-  document.getElementById("detailBox").innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="font-size:15px">#${a.bib} ${esc(a.name)} · desglose</h3><button class="btn btn-sm" onclick="document.getElementById('detailBox').innerHTML=''">Cerrar</button></div><div class="table-scroll" style="margin-top:10px"><table><thead><tr><th>#</th><th>Segmento</th><th>Split</th></tr></thead><tbody>${rows}</tbody></table></div><p class="sub" style="margin-top:10px">Total: <strong>${fmt(liveElapsed(a))}</strong> · Run: ${fmtShort(runMs(a))} · Estaciones: ${fmtShort(stationMs(a))}</p></div>`;
+  document.getElementById("detailBox").innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="font-size:15px">#${a.bib} ${esc(a.name)} · desglose</h3><div class="row" style="gap:8px"><a class="btn btn-sm" href="${athleteUrl(a)}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">↗ Página individual</a><button class="btn btn-sm" onclick="document.getElementById('detailBox').innerHTML=''">Cerrar</button></div></div><div class="table-scroll" style="margin-top:10px"><table><thead><tr><th>#</th><th>Segmento</th><th>Split</th></tr></thead><tbody>${rows}</tbody></table></div><p class="sub" style="margin-top:10px">Total: <strong>${fmt(liveElapsed(a))}</strong> · Run: ${fmtShort(runMs(a))} · Estaciones: ${fmtShort(stationMs(a))}</p></div>`;
   document.getElementById("detailBox").scrollIntoView({behavior:"smooth"});
+}
+function athleteUrl(a){
+  const base=new URL("atleta.html", location.href).href;
+  return base+"?s="+encodeURIComponent(sessionId)+"&a="+encodeURIComponent(a.name);
 }
 function exportCSV(){
   const list=state.athletes.filter(hasTimes);
   if(!list.length){ toast("No hay datos para exportar"); return; }
-  const head=["Dorsal","Nombre","Categoria","Tiempo_total","Suma_run","Suma_estaciones","Avance","Split_actual","Estado"];
+  const head=["Dorsal","Nombre","Categoria","Tiempo_total","Suma_run","Suma_estaciones","Avance","Split_actual","Estado","Enlace_individual"];
   buildSteps().forEach((s,i)=>head.push(`S${i+1}_${s.label.replace(/[, ]+/g,"_")}`));
   const rows=[head.join(",")];
-  list.forEach(a=>{ const r=[a.bib,`"${a.name}"`,a.cat,fmt(liveElapsed(a)),fmtShort(runMs(a)),fmtShort(stationMs(a)),`${doneCount(a)}/16`,`"${currentSplitText(a)}"`,a.finished?"Final":"En_curso"]; a.steps.forEach(s=>r.push(s.ms!=null?fmtShort(s.ms):"")); rows.push(r.join(",")); });
+  list.forEach(a=>{ const r=[a.bib,`"${a.name}"`,a.cat,fmt(liveElapsed(a)),fmtShort(runMs(a)),fmtShort(stationMs(a)),`${doneCount(a)}/16`,`"${currentSplitText(a)}"`,a.finished?"Final":"En_curso",`"${athleteUrl(a)}"`]; a.steps.forEach(s=>r.push(s.ms!=null?fmtShort(s.ms):"")); rows.push(r.join(",")); });
   const blob=new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob), link=document.createElement("a");
   link.href=url; link.download="resultados_hyrox_"+sessionId+"_"+new Date().toISOString().slice(0,10)+".csv";

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hyrox · Resultado individual</title>
+<style>
+  :root{
+    --bg:#0a0c10; --surface:#13161d; --surface2:#1c2029; --line:#262b35;
+    --text:#f4f6fa; --muted:#9aa3b2; --hint:#666e7e;
+    --accent:#1d9e75; --blue:#5da3e8; --amber:#f5b54a;
+    --gold:#f5c451;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--font)}
+  body{padding:20px 16px 40px;max-width:860px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:2px solid var(--line);margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:.18em}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .meta{text-align:right;font-size:13px;color:var(--muted);line-height:1.5}
+  .live{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:700}
+  .live .blink{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  .ident{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .bib{font-family:var(--mono);color:var(--accent);font-weight:800;font-size:20px}
+  .name{font-weight:800;font-size:28px}
+  .cat{font-size:13px;color:var(--muted);background:rgba(255,255,255,.06);padding:3px 11px;border-radius:999px}
+  .status{display:inline-block;font-size:13px;font-weight:700;padding:3px 12px;border-radius:999px}
+  .st-fin{color:var(--accent);background:rgba(29,158,117,.16)}
+  .st-run{color:var(--amber);background:rgba(245,181,74,.16)}
+  .st-wait{color:var(--muted);background:var(--surface2)}
+
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0 24px}
+  .mcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .mcard .lbl{font-size:12px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  .mcard .val{font-family:var(--mono);font-weight:800;font-size:26px;margin-top:8px}
+  .mcard.total .val{color:var(--gold)}
+  .mcard.run .val{color:var(--blue)}
+  .mcard.station .val{color:var(--amber)}
+  .mcard .unit{font-size:13px;color:var(--muted);font-weight:600}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:700}
+  .panel.run h2{color:#85b7eb}
+  .panel.station h2{color:#fac775}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  td{padding:11px 16px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:none}
+  td.seg{color:var(--text)}
+  td.idx{font-family:var(--mono);color:var(--hint);width:34px}
+  td.t{font-family:var(--mono);text-align:right;font-weight:700}
+  td.t.pending{color:var(--hint);font-weight:400}
+
+  .state{text-align:center;padding:60px 16px;color:var(--hint)}
+  .state .big{font-size:22px;font-weight:700;color:var(--muted);margin-bottom:10px}
+  .setup{max-width:540px;margin:8vh auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px}
+  .setup h1{font-size:20px;margin-bottom:12px}
+  .setup p{color:var(--muted);line-height:1.6;margin-bottom:12px}
+  .setup code{background:#000;padding:2px 8px;border-radius:5px;font-family:var(--mono);color:#9fe1cb;font-size:13px}
+  footer{margin-top:24px;padding-top:14px;color:var(--hint);font-size:12px;display:flex;justify-content:space-between;border-top:1px solid var(--line)}
+  @media(max-width:640px){
+    .cards{grid-template-columns:1fr 1fr}
+    .grid2{grid-template-columns:1fr}
+    .name{font-size:23px}
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="state"><div class="big">Cargando…</div></div></div>
+
+<script src="config.js"></script>
+<script type="module">
+/* ===========================================================================
+   Credenciales: archivo externo config.js (window.firebaseConfig), igual que
+   index.html y leaderboard.html. No se escriben aquí.
+   Parámetros de URL:
+     s = código de sesión   (ej. ?s=sabado-15-jun)
+     a = nombre del atleta   (ej. &a=Juan%20Pérez)
+   =========================================================================== */
+const firebaseConfig = (window.firebaseConfig) ? window.firebaseConfig : { apiKey:"PEGA_TU_API_KEY" };
+const CONFIGURED = !firebaseConfig.apiKey.startsWith("PEGA_");
+
+const params  = new URLSearchParams(location.search);
+const SESSION = params.get("s") || "sabado";
+const ATHLETE = (params.get("a") || "").trim();
+
+const RUN_KM = 1; // cada segmento de carrera = 1 km
+
+function fmt(ms){ if(ms==null)return"—"; const t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=t%60; return (h>0?h+":":"")+String(m).padStart(h>0?2:1,"0")+":"+String(s).padStart(2,"0"); }
+function fmtShort(ms){ if(ms==null)return"—"; const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60; return m+":"+String(s).padStart(2,"0"); }
+function runMs(a){ return a.steps.filter(x=>x.type==="run").reduce((s,x)=>s+(x.ms||0),0); }
+function stationMs(a){ return a.steps.filter(x=>x.type==="station").reduce((s,x)=>s+(x.ms||0),0); }
+function doneCount(a){ return a.steps.filter(x=>x.ms!=null).length; }
+function liveElapsed(a){ return (a.elapsed||0)+((a.running&&a.startTs)?Date.now()-a.startTs:0); }
+function statusOf(a){
+  if(a.finished) return ["Finalizado","st-fin"];
+  if(a.running || (a.elapsed||0)>0 || a.steps.some(x=>x.ms!=null)) return ["En curso","st-run"];
+  return ["Por salir","st-wait"];
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function findAthlete(state){
+  if(!state || !state.athletes) return null;
+  const t=ATHLETE.toLowerCase();
+  return state.athletes.find(a=>String(a.name).trim().toLowerCase()===t) || null;
+}
+
+function setupScreen(){
+  document.getElementById("app").innerHTML=`<div class="setup">
+    <h1>Configura la página</h1>
+    <p>Pega tus credenciales de Firebase en <code>config.js</code> (las mismas que usa el cronómetro).</p>
+    <p>Luego abre con la sesión y el nombre del atleta:<br>
+      <code>atleta.html?s=${esc(SESSION)}&amp;a=Nombre%20Atleta</code></p>
+  </div>`;
+}
+
+function renderHeader(){
+  const now=new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  return `<header>
+    <div class="brand"><span class="dot"></span>HYROX</div>
+    <div class="meta"><span class="live"><span class="blink"></span>EN VIVO</span><br>Sesión: ${esc(SESSION)} · <span id="liveClock">${now}</span></div>
+  </header>`;
+}
+
+function renderNotFound(){
+  document.getElementById("app").innerHTML=renderHeader()+`<div class="state">
+    <div class="big">Atleta no encontrado</div>
+    <div>No hay ningún atleta llamado «${esc(ATHLETE||"—")}» en la sesión «${esc(SESSION)}».</div>
+  </div>
+  <footer><span>Resultado individual</span><span>Actualización automática</span></footer>`;
+}
+
+function render(state){
+  const a=findAthlete(state);
+  if(!a){ renderNotFound(); return; }
+
+  const runs     = a.steps.filter(x=>x.type==="run");
+  const stations = a.steps.filter(x=>x.type==="station");
+  const rMs=runMs(a), sMs=stationMs(a);
+  const cRuns=runs.filter(x=>x.ms!=null).length;
+  const avgKm = cRuns>0 ? Math.round(rMs/(cRuns*RUN_KM)) : null;
+  const [stTxt,stCls]=statusOf(a);
+
+  const runRows=runs.map((s,i)=>`<tr>
+    <td class="idx">${i+1}</td>
+    <td class="seg">${esc(s.label)}</td>
+    <td class="t ${s.ms==null?'pending':''}">${s.ms!=null?fmtShort(s.ms):"—"}</td></tr>`).join("");
+  const staRows=stations.map((s,i)=>`<tr>
+    <td class="idx">${i+1}</td>
+    <td class="seg">${esc(s.label)}</td>
+    <td class="t ${s.ms==null?'pending':''}">${s.ms!=null?fmtShort(s.ms):"—"}</td></tr>`).join("");
+
+  document.getElementById("app").innerHTML=renderHeader()+`
+    <div class="ident">
+      <span class="bib">#${a.bib}</span>
+      <span class="name">${esc(a.name)}</span>
+      <span class="cat">${esc(a.cat)}</span>
+      <span class="status ${stCls}">${stTxt}</span>
+    </div>
+
+    <div class="cards">
+      <div class="mcard total"><div class="lbl">Tiempo total</div><div class="val" id="liveTotal">${fmt(liveElapsed(a))}</div></div>
+      <div class="mcard run"><div class="lbl">Promedio por km</div><div class="val">${avgKm!=null?fmtShort(avgKm):"—"}<span class="unit"> /km</span></div></div>
+      <div class="mcard run"><div class="lbl">Total carrera</div><div class="val">${fmtShort(rMs)}</div></div>
+      <div class="mcard station"><div class="lbl">Total estaciones</div><div class="val">${fmtShort(sMs)}</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel run">
+        <h2>Carreras (${cRuns}/8)</h2>
+        <table>${runRows}</table>
+      </div>
+      <div class="panel station">
+        <h2>Estaciones (${stations.filter(x=>x.ms!=null).length}/8)</h2>
+        <table>${staRows}</table>
+      </div>
+    </div>
+
+    <footer><span>Avance ${doneCount(a)}/16 · ${cRuns*RUN_KM} km de carrera</span><span>Actualización automática</span></footer>`;
+}
+
+if(!CONFIGURED){ setupScreen(); }
+else{
+  Promise.all([
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"),
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+  ]).then(([appMod,dbMod,authMod])=>{
+    const app=appMod.initializeApp(firebaseConfig);
+    const db=dbMod.getDatabase(app);
+    const auth=authMod.getAuth(app);
+    let lastState={athletes:[]};
+    authMod.signInAnonymously(auth).catch(e=>console.error(e));
+    dbMod.onValue(dbMod.ref(db,"sessions/"+SESSION+"/state"),(snap)=>{
+      lastState=snap.val()||{athletes:[]};
+      render(lastState);
+    },(err)=>console.error(err));
+    // reloj de cabecera + tiempo total en vivo si el atleta está corriendo
+    setInterval(()=>{
+      const c=document.getElementById("liveClock");
+      if(c) c.textContent=new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const a=findAthlete(lastState);
+      const t=document.getElementById("liveTotal");
+      if(a && a.running && t) t.textContent=fmt(liveElapsed(a));
+    },1000);
+  }).catch(e=>{ console.error(e); setupScreen(); });
+}
+</script>
+</body>
+</html>
