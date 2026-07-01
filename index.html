@@ -377,7 +377,22 @@ function setupChannel(){
     };
   }catch(e){ bc=null; }
 }
-function push(){ state._ts=Date.now(); saveLocal(); broadcastLocal(); if(db && !applyingRemote){ set(ref(db, dbPath()), state).catch(e=>{ console.error(e); setSync("off","Reintentando…"); }); } }
+function push(){
+  state._ts=Date.now();
+  saveLocal();
+  broadcastLocal();
+  if(db && !applyingRemote){
+    try{
+      const p=set(ref(db, dbPath()), state);
+      if(p && typeof p.catch==="function") p.catch(e=>{ console.error("sync:",e); setSync("off","Reintentando…"); });
+    }catch(e){
+      // Un fallo SÍNCRONO al escribir en Firebase no debe romper el flujo:
+      // el estado ya se guardó en local y la UI debe seguir actualizándose.
+      console.error("sync (sincrónico):",e);
+      setSync("off","Guardando local (sync no disponible)");
+    }
+  }
+}
 
 function go(v){
   currentView=v;
@@ -403,9 +418,9 @@ function addAthlete(){
   if(!name){ toast("Escribe un nombre"); return; }
   const cat=document.getElementById("newCat").value;
   state.athletes.push({ bib:state.nextBib++, name, cat, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
-  document.getElementById("newName").value=""; push(); renderAthletes(); document.getElementById("newName").focus();
+  document.getElementById("newName").value=""; renderAthletes(); push(); document.getElementById("newName").focus();
 }
-function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib); push(); renderAthletes(); }
+function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib); renderAthletes(); push(); }
 function renderAthletes(){
   const el=document.getElementById("athleteList"); if(!el) return;
   if(!state.athletes.length){ el.innerHTML='<p class="sub" style="text-align:center;padding:14px 0">Sin atletas todavía.</p>'; return; }
@@ -475,7 +490,7 @@ function cardHtml(a){
   </div>`;
 }
 
-function startRun(bib){ const a=g(bib); pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; push(); renderBoard(); }
+function startRun(bib){ const a=g(bib); pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; renderBoard(); push(); }
 function toggleWave(bib){ if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
 function clearWave(){ waveSel.clear(); renderBoard(); }
 function renderWaveBar(){
@@ -495,7 +510,7 @@ function startWave(){
   const ts=Date.now();  // mismo timestamp para toda la tanda: salida idéntica
   grupo.forEach(a=>{ pushUndo(a,'start'); a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
   const n=grupo.length;
-  waveSel.clear(); push(); renderBoard();
+  waveSel.clear(); renderBoard(); push();
   toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez");
 }
 function renderStats(){
@@ -508,8 +523,8 @@ function renderStats(){
     <span class="stat"><span class="dot wait"></span><strong>${wait}</strong> por salir</span>
     <span class="stat"><span class="dot fin"></span><strong>${fin}</strong> finalizados</span>`;
 }
-function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; push(); renderBoard(); }
-function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; push(); renderBoard(); }
+function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; renderBoard(); push(); }
+function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; renderBoard(); push(); }
 function lap(bib){
   const a=g(bib);
   if(!a.running){ if(a.elapsed>0){ resumeRun(bib); } else { startRun(bib); } return; }
@@ -518,7 +533,7 @@ function lap(bib){
   a.steps[a.idx].ms = el - (a.idx>0?sumPrev(a,a.idx):0);
   a.idx++;
   if(a.idx>=a.steps.length){ a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; toast(`#${a.bib} ${a.name.split(' ')[0]} finalizó`); }
-  push(); renderBoard();
+  renderBoard(); push();
 }
 function confirmFinish(bib){
   const a=g(bib);
@@ -526,7 +541,7 @@ function confirmFinish(bib){
   pushUndo(a,'finish');
   const el=liveElapsed(a);
   if(a.running && a.idx<a.steps.length){ a.steps[a.idx].ms=el-sumPrev(a,a.idx); a.idx++; }
-  a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; push(); toast(`#${a.bib} finalizó`); renderBoard();
+  a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; renderBoard(); push(); toast(`#${a.bib} finalizó`);
 }
 
 /* ---------- Deshacer última marca (corrige dobles clics, atleta equivocado o
@@ -569,7 +584,7 @@ function undoLast(bib){
       a.idx--; a.steps[a.idx].ms=null;
     } else { toast("Nada que deshacer"); return; }
   }
-  push(); renderBoard();
+  renderBoard(); push();
   toast(`#${a.bib} · marca deshecha`);
 }
 
@@ -662,7 +677,7 @@ function exportCSV(){
 function resetRace(){
   if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
   state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0;a._undo=[]; });
-  push(); renderResults(); renderBoard(); toast("Tiempos reiniciados");
+  renderResults(); renderBoard(); push(); toast("Tiempos reiniciados");
 }
 
 /* ---------- PANTALLA TV (leaderboard integrado) ---------- */
@@ -776,7 +791,7 @@ async function importAthletes(ev){
       added++;
     }
     if(!added){ toast("No se encontraron nombres en el archivo"); return; }
-    push(); renderAthletes();
+    renderAthletes(); push();
     toast(added+" atleta"+(added>1?"s":"")+" importado"+(added>1?"s":""));
   }catch(e){ console.error(e); toast("No se pudo leer el archivo"); }
 }
