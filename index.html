@@ -24,11 +24,10 @@
   .wrap{max-width:960px;margin:0 auto;padding:0 16px}
 
   header{position:sticky;top:0;z-index:20;background:rgba(15,17,21,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-  .hbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;max-width:960px;margin:0 auto;gap:10px}
-  .brandbox{display:flex;flex-direction:column;gap:3px;line-height:1}
-  .brandtitle{font-weight:900;font-size:clamp(21px,4.6vw,27px);letter-spacing:-.01em;color:#e8ff00;text-transform:uppercase}
-  .brandtitle .slash{opacity:.55;font-weight:800;margin:0 1px}
-  .brandsub{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+  .hbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;max-width:960px;margin:0 auto;gap:10px;flex-wrap:wrap}
+  .brandbox{display:flex;flex-direction:column;gap:4px;line-height:1}
+  .brandtitle{font-weight:900;font-size:clamp(2rem,6vw,3.8rem);letter-spacing:-.03em;line-height:.9;color:#e8ff00;text-transform:uppercase}
+  .brandsub{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
   .tabs{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:4px;flex-wrap:wrap}
   .tabs button{background:transparent;color:var(--muted);padding:8px 13px;font-weight:600;border-radius:6px;transition:.15s;font-size:14px}
   .tabs button.active{background:var(--accent);color:#04140f}
@@ -188,7 +187,7 @@
 <header>
   <div class="hbar">
     <div class="brandbox">
-      <div class="brandtitle">HYROX<span class="slash">/</span>LIVE</div>
+      <div class="brandtitle">HYROX - LIVE</div>
       <div class="brandsub">CRONÓMETRO · SPLITS · LEADERBOARD</div>
     </div>
     <div class="tabs">
