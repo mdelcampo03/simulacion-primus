@@ -110,6 +110,10 @@
   .wave-start:hover{background:var(--accent-d);color:#fff}
   .sec-btn{flex:0 0 auto!important;padding:16px 14px!important;color:var(--muted)!important;border-left:1px solid var(--line)!important}
   .finish-btn{background:transparent!important;color:var(--purple)!important;flex:0 0 auto!important;padding:16px 14px!important;border-left:1px solid var(--line)!important}
+  .undo-btn{background:transparent!important;color:var(--muted)!important;flex:0 0 auto!important;padding:16px 12px!important;border-left:1px solid var(--line)!important;font-size:17px!important}
+  .undo-btn:active{color:var(--text)!important;filter:brightness(1.15)}
+  .donebar .undo-fin{display:inline-block;margin-top:10px;padding:7px 16px!important;border:1px solid var(--line)!important;border-radius:var(--radius-sm);font-size:13px!important;font-weight:600;color:var(--muted)!important}
+  .donebar .undo-fin:hover{border-color:var(--purple)!important;color:var(--text)!important}
   .acard.finished .donebar{padding:14px;text-align:center;color:var(--accent);font-weight:700;font-size:14px}
   .acard.finished .donebar small{display:block;color:var(--muted);font-weight:400;font-family:var(--mono);margin-top:2px}
 
@@ -426,10 +430,12 @@ function cardHtml(a){
   else if(a.finished){ clockArea=`<div class="clockrow"><span class="clk">${clk(liveElapsed(a))}</span><span class="seglast">total</span></div>`; }
   else{ clockArea=`<div class="clockrow"><span class="clk" style="color:var(--hint)">0:00</span><span class="seglast">listo para iniciar</span></div>`; }
   let actions;
-  if(a.finished){ actions=`<div class="donebar">Carrera completa<small>Run ${fmtShort(runMs(a))} · Estac. ${fmtShort(stationMs(a))}</small></div>`; }
+  const canUndo = (a._undo && a._undo.length>0);
+  if(a.finished){ actions=`<div class="donebar">Carrera completa<small>Run ${fmtShort(runMs(a))} · Estac. ${fmtShort(stationMs(a))}</small><button class="undo-btn undo-fin" onclick="undoLast(${a.bib})" title="Reabrir / deshacer finalización">↩ Deshacer</button></div>`; }
   else if(st==="waiting"){ actions=`<div class="actions"><button class="start-btn" onclick="startRun(${a.bib})">▶ Iniciar</button></div>`; }
   else{ actions=`<div class="actions">
       <button class="mark-btn ${isStation?'station':''}" onclick="lap(${a.bib})">Marcar ${a.idx+1}/16</button>
+      ${(canUndo||a.idx>0)?`<button class="undo-btn" onclick="undoLast(${a.bib})" title="Deshacer última marca">↩</button>`:""}
       ${a.running?`<button class="sec-btn" onclick="pauseRun(${a.bib})" title="Pausar">⏸</button>`:`<button class="sec-btn" onclick="resumeRun(${a.bib})" title="Reanudar">▶</button>`}
       <button class="finish-btn" onclick="confirmFinish(${a.bib})" title="Finalizar">🏁</button>
     </div>`; }
@@ -442,7 +448,7 @@ function cardHtml(a){
   </div>`;
 }
 
-function startRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; push(); renderBoard(); }
+function startRun(bib){ const a=g(bib); pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; push(); renderBoard(); }
 function toggleWave(bib){ if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
 function clearWave(){ waveSel.clear(); renderBoard(); }
 function renderWaveBar(){
@@ -460,7 +466,7 @@ function startWave(){
   const grupo=state.athletes.filter(a=>waveSel.has(a.bib)&&athleteStatus(a)==="waiting");
   if(!grupo.length){ toast("Selecciona atletas por salir"); return; }
   const ts=Date.now();  // mismo timestamp para toda la tanda: salida idéntica
-  grupo.forEach(a=>{ a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
+  grupo.forEach(a=>{ pushUndo(a,'start'); a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
   const n=grupo.length;
   waveSel.clear(); push(); renderBoard();
   toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez");
@@ -480,6 +486,7 @@ function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=fals
 function lap(bib){
   const a=g(bib);
   if(!a.running){ if(a.elapsed>0){ resumeRun(bib); } else { startRun(bib); } return; }
+  pushUndo(a,'lap');
   const el=liveElapsed(a);
   a.steps[a.idx].ms = el - (a.idx>0?sumPrev(a,a.idx):0);
   a.idx++;
@@ -489,9 +496,54 @@ function lap(bib){
 function confirmFinish(bib){
   const a=g(bib);
   if(!confirm(`¿Finalizar a #${a.bib} ${a.name} ahora? Quedan ${16-a.idx} segmentos sin marcar.`)) return;
+  pushUndo(a,'finish');
   const el=liveElapsed(a);
   if(a.running && a.idx<a.steps.length){ a.steps[a.idx].ms=el-sumPrev(a,a.idx); a.idx++; }
   a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; push(); toast(`#${a.bib} finalizó`); renderBoard();
+}
+
+/* ---------- Deshacer última marca (corrige dobles clics, atleta equivocado o
+   finalización accidental). Se guarda una pila breve de estados previos por atleta;
+   al deshacer se conserva la hora de salida original, de modo que el cronómetro
+   sigue contando de forma continua y el segmento en curso se recalcula solo
+   (liveElapsed − splits previos) en la próxima marca. ---------- */
+function pushUndo(a, action){
+  if(!a._undo) a._undo=[];
+  a._undo.push({ action, idx:a.idx, elapsed:a.elapsed, running:a.running, startTs:a.startTs, finished:a.finished, stepsMs:a.steps.map(s=>s.ms) });
+  if(a._undo.length>20) a._undo.shift();
+}
+function undoLast(bib){
+  const a=g(bib);
+  const wasFinished=a.finished;
+  if(wasFinished && !confirm(`¿Reabrir a #${a.bib} ${a.name}? Volverá a estar en curso.`)) return;
+  const stack=a._undo;
+  if(stack && stack.length){
+    const s=stack.pop();
+    // Revertir siempre el avance y el split marcado por error
+    a.idx=s.idx;
+    for(let i=0;i<a.steps.length;i++){ a.steps[i].ms = (s.stepsMs && i<s.stepsMs.length) ? s.stepsMs[i] : null; }
+    a.finished=s.finished;
+    if(wasFinished || s.action==='start'){
+      // Reabrir una carrera finalizada o deshacer una salida:
+      // se restaura el reloj del snapshot. Si en ese momento la carrera estaba
+      // activa, conserva su startTs original y el cronómetro sigue contando
+      // desde la salida (sin perder el tiempo transcurrido).
+      a.running=s.running; a.elapsed=s.elapsed; a.startTs=s.startTs;
+    }
+    // Si sólo se deshace un split con la carrera aún activa/pausada, se deja el
+    // reloj tal cual: el tiempo total no retrocede ni se detiene.
+  } else {
+    // Reconstrucción para datos anteriores a esta función (sin historial).
+    if(a.finished){
+      a.finished=false;
+      if(a.idx>0){ a.idx--; a.steps[a.idx].ms=null; }
+      if(!a.running){ a.startTs=Date.now(); a.running=true; }  // reanuda desde el tiempo congelado
+    } else if(a.idx>0){
+      a.idx--; a.steps[a.idx].ms=null;
+    } else { toast("Nada que deshacer"); return; }
+  }
+  push(); renderBoard();
+  toast(`#${a.bib} · marca deshecha`);
 }
 
 setInterval(()=>{
@@ -582,7 +634,7 @@ function exportCSV(){
 }
 function resetRace(){
   if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
-  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0; });
+  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0;a._undo=[]; });
   push(); renderResults(); renderBoard(); toast("Tiempos reiniciados");
 }
 
@@ -709,7 +761,7 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,undoLast,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
