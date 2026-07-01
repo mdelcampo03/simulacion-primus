@@ -230,9 +230,9 @@
     <div class="board-head">
       <h2>Tablero de cronometraje</h2>
       <div class="filter-chips" id="filterChips">
-        <button data-f="active" class="active" onclick="setFilter('active')">Activos</button>
+        <button data-f="active" onclick="setFilter('active')">Activos</button>
         <button data-f="waiting" onclick="setFilter('waiting')">Por salir</button>
-        <button data-f="all" onclick="setFilter('all')">Todos</button>
+        <button data-f="all" class="active" onclick="setFilter('all')">Todos</button>
         <button data-f="finished" onclick="setFilter('finished')">Finalizados</button>
       </div>
     </div>
@@ -319,7 +319,8 @@ function buildSteps(){
 let sessionId = localStorage.getItem("hyrox_session") || "sabado";
 let state = loadLocal() || { athletes:[], nextBib:1 };
 let sortKey="total", sortDir=1, applyingRemote=false;
-let boardFilter="active", currentView="setup";
+let boardFilter="all", currentView="setup";
+let bc=null;  // canal entre ventanas del mismo navegador (TV/atleta sin Firebase)
 let waveSel=new Set();  // selección local de atletas para iniciar en tanda (no se sincroniza)
 
 function loadLocal(){ try{ return JSON.parse(localStorage.getItem("hyrox_"+sessionId)); }catch(e){ return null; } }
@@ -348,10 +349,35 @@ function listenRemote(){
   if(!db) return;
   onValue(ref(db, dbPath()), (snap)=>{
     const val=snap.val();
-    if(val && val.athletes){ applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false; setSync("on","Sincronizado · sesión: "+sessionId); }
+    if(val && val.athletes){
+      // Solo aplicar el estado remoto si es al menos tan reciente como el local.
+      // Evita que un estado vacío/antiguo en Firebase borre el avance local
+      // recién restaurado tras un refresh.
+      if((val._ts||0) >= (state._ts||0)){
+        applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false;
+        setSync("on","Sincronizado · sesión: "+sessionId);
+      } else {
+        // El local es más reciente: publícalo para no perderlo.
+        push();
+      }
+    }
   }, (err)=>{ console.error(err); setSync("off","Sin conexión — guardando local"); });
 }
-function push(){ saveLocal(); if(db && !applyingRemote){ set(ref(db, dbPath()), state).catch(e=>{ console.error(e); setSync("off","Reintentando…"); }); } }
+function broadcastLocal(){ if(bc){ try{ bc.postMessage({state}); }catch(e){} } }
+function setupChannel(){
+  if(bc){ try{ bc.close(); }catch(e){} bc=null; }
+  try{
+    bc=new BroadcastChannel("hyrox-"+sessionId);
+    bc.onmessage=(e)=>{
+      const v=e.data&&e.data.state;
+      // Aplica solo estados estrictamente más nuevos (otra pestaña editora del mismo equipo)
+      if(v && v.athletes && (v._ts||0) > (state._ts||0)){
+        applyingRemote=true; state=v; saveLocal(); renderAll(); applyingRemote=false;
+      }
+    };
+  }catch(e){ bc=null; }
+}
+function push(){ state._ts=Date.now(); saveLocal(); broadcastLocal(); if(db && !applyingRemote){ set(ref(db, dbPath()), state).catch(e=>{ console.error(e); setSync("off","Reintentando…"); }); } }
 
 function go(v){
   currentView=v;
@@ -366,6 +392,7 @@ function changeSession(){
   if(!v) return;
   sessionId=v; localStorage.setItem("hyrox_session",sessionId);
   state=loadLocal()||{athletes:[],nextBib:1};
+  setupChannel();
   if(db){ listenRemote(); }
   setSync(CONFIGURED?"on":"local",(CONFIGURED?"Sincronizado":"Modo local")+" · sesión: "+sessionId);
   renderAll(); toast("Sesión: "+sessionId);
@@ -765,6 +792,7 @@ Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startR
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
+setupChannel();
 renderAll();
 initFirebase();
 </script>

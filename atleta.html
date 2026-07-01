@@ -182,8 +182,36 @@ function render(state){
     <footer><span>Avance ${doneCount(a)}/16 · ${cRuns*RUN_KM} km de carrera</span><span>Actualización automática</span></footer>`;
 }
 
-if(!CONFIGURED){ setupScreen(); }
-else{
+/* ---------------------------------------------------------------------------
+   Local-first, igual que leaderboard.html: si se abre en el mismo navegador que
+   el cronómetro funciona sin Firebase (localStorage + BroadcastChannel); si hay
+   Firebase configurado, además sincroniza entre dispositivos.
+   --------------------------------------------------------------------------- */
+let current={athletes:[]};
+function apply(st){
+  if(!st || !st.athletes) return;
+  if((st._ts||0) >= (current._ts||0) || !(current.athletes && current.athletes.length)){
+    current=st; render(current);
+  }
+}
+
+// Estado inicial desde localStorage
+try{
+  const ls=JSON.parse(localStorage.getItem("hyrox_"+SESSION));
+  if(ls && ls.athletes) apply(ls); else render(current);
+}catch(e){ render(current); }
+
+// Actualizaciones entre ventanas del mismo dispositivo
+try{
+  const ch=new BroadcastChannel("hyrox-"+SESSION);
+  ch.onmessage=(e)=>{ if(e.data && e.data.state) apply(e.data.state); };
+}catch(e){}
+window.addEventListener("storage",(e)=>{
+  if(e.key==="hyrox_"+SESSION && e.newValue){ try{ apply(JSON.parse(e.newValue)); }catch(_){} }
+});
+
+// Sincronización entre dispositivos (opcional)
+if(CONFIGURED){
   Promise.all([
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"),
@@ -192,22 +220,21 @@ else{
     const app=appMod.initializeApp(firebaseConfig);
     const db=dbMod.getDatabase(app);
     const auth=authMod.getAuth(app);
-    let lastState={athletes:[]};
     authMod.signInAnonymously(auth).catch(e=>console.error(e));
     dbMod.onValue(dbMod.ref(db,"sessions/"+SESSION+"/state"),(snap)=>{
-      lastState=snap.val()||{athletes:[]};
-      render(lastState);
+      apply(snap.val()||{athletes:[]});
     },(err)=>console.error(err));
-    // reloj de cabecera + tiempo total en vivo si el atleta está corriendo
-    setInterval(()=>{
-      const c=document.getElementById("liveClock");
-      if(c) c.textContent=new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-      const a=findAthlete(lastState);
-      const t=document.getElementById("liveTotal");
-      if(a && a.running && t) t.textContent=fmt(liveElapsed(a));
-    },1000);
-  }).catch(e=>{ console.error(e); setupScreen(); });
+  }).catch(e=>console.error(e));
 }
+
+// Reloj de cabecera + tiempo total en vivo
+setInterval(()=>{
+  const c=document.getElementById("liveClock");
+  if(c) c.textContent=new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const a=findAthlete(current);
+  const t=document.getElementById("liveTotal");
+  if(a && a.running && t) t.textContent=fmt(liveElapsed(a));
+},1000);
 </script>
 </body>
 </html>

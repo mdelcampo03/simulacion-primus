@@ -108,7 +108,7 @@ function render(state){
   const now=new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   const headHtml=`<header>
       <div class="brand"><span class="dot"></span>HYROX</div>
-      <div class="meta"><span class="live"><span class="blink"></span>EN VIVO</span><br>Sesión: ${esc(SESSION)} · ${now}</div>
+      <div class="meta"><span class="live"><span class="blink"></span>EN VIVO</span><br>Sesión: ${esc(SESSION)} · <span id="lbClock">${now}</span></div>
     </header>`;
 
   if(!ordered.length){
@@ -140,33 +140,59 @@ function render(state){
     <footer><span>${finished.length} finalizados · ${running.length} en curso</span><span>Actualización automática</span></footer>`;
 }
 
-if(!CONFIGURED){ setupScreen(); }
-else{
+/* ---------------------------------------------------------------------------
+   Local-first: la ventana nueva del leaderboard (abierta desde el cronómetro en
+   el mismo dispositivo) se alimenta de localStorage + BroadcastChannel, así que
+   funciona SIN Firebase. Si además hay Firebase configurado, se sincroniza entre
+   dispositivos. Gana el estado con _ts más reciente.
+   --------------------------------------------------------------------------- */
+let current={athletes:[]};
+function apply(st){
+  if(!st || !st.athletes) return;
+  if((st._ts||0) >= (current._ts||0) || !(current.athletes && current.athletes.length)){
+    current=st; render(current);
+  }
+}
+
+// 1) Estado inicial desde localStorage (mismo navegador que el cronómetro)
+try{
+  const ls=JSON.parse(localStorage.getItem("hyrox_"+SESSION));
+  if(ls && ls.athletes) apply(ls); else render(current);
+}catch(e){ render(current); }
+
+// 2) Actualizaciones en vivo entre ventanas del mismo dispositivo
+try{
+  const ch=new BroadcastChannel("hyrox-"+SESSION);
+  ch.onmessage=(e)=>{ if(e.data && e.data.state) apply(e.data.state); };
+}catch(e){}
+window.addEventListener("storage",(e)=>{
+  if(e.key==="hyrox_"+SESSION && e.newValue){ try{ apply(JSON.parse(e.newValue)); }catch(_){} }
+});
+
+// 3) Sincronización entre dispositivos (opcional, si hay Firebase configurado)
+if(CONFIGURED){
   Promise.all([
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
   ]).then(([appMod,dbMod])=>{
     const app=appMod.initializeApp(firebaseConfig);
     const db=dbMod.getDatabase(app);
-    let lastState={athletes:[]};
     dbMod.onValue(dbMod.ref(db,"sessions/"+SESSION+"/state"),(snap)=>{
-      lastState=snap.val()||{athletes:[]};
-      render(lastState);
+      apply(snap.val()||{athletes:[]});
     },(err)=>{ console.error(err); });
-    render({athletes:[]});
-    setInterval(()=>{
-      // actualiza en vivo el tiempo total de atletas en curso, y el reloj de cabecera
-      const map={}; (lastState.athletes||[]).forEach(a=>map[a.bib]=a);
-      let needsFull=false;
-      document.querySelectorAll(".total[data-bib]").forEach(el=>{
-        const a=map[parseInt(el.dataset.bib,10)];
-        if(a && a.running){ el.textContent=fmt(liveElapsed(a)); }
-      });
-      // si hay alguien corriendo, re-render completo cada segundo para mover el reloj de cabecera
-      if((lastState.athletes||[]).some(a=>a.running||(!a.finished&&((a.elapsed||0)>0)))) { /* el header se actualiza en el próximo onValue/refresh */ }
-    },1000);
-  }).catch(e=>{ console.error(e); setupScreen(); });
+  }).catch(e=>{ console.error(e); });
 }
+
+// 4) Reloj de cabecera + tiempo total en vivo de quienes están en curso
+setInterval(()=>{
+  const c=document.getElementById("lbClock");
+  if(c) c.textContent=new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const map={}; (current.athletes||[]).forEach(a=>map[a.bib]=a);
+  document.querySelectorAll(".total[data-bib]").forEach(el=>{
+    const a=map[parseInt(el.dataset.bib,10)];
+    if(a && a.running){ el.textContent=fmt(liveElapsed(a)); }
+  });
+},1000);
 </script>
 </body>
 </html>
