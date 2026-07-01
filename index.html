@@ -25,12 +25,16 @@
 
   header{position:sticky;top:0;z-index:20;background:rgba(15,17,21,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
   .hbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;max-width:960px;margin:0 auto;gap:10px}
-  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:.5px}
-  .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent)}
+  .brandbox{display:flex;flex-direction:column;gap:3px;line-height:1}
+  .brandtitle{font-weight:900;font-size:clamp(21px,4.6vw,27px);letter-spacing:-.01em;color:#e8ff00;text-transform:uppercase}
+  .brandtitle .slash{opacity:.55;font-weight:800;margin:0 1px}
+  .brandsub{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
   .tabs{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:4px;flex-wrap:wrap}
   .tabs button{background:transparent;color:var(--muted);padding:8px 13px;font-weight:600;border-radius:6px;transition:.15s;font-size:14px}
   .tabs button.active{background:var(--accent);color:#04140f}
   .syncbar{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 16px;max-width:960px;margin:0 auto}
+  .guide-link{margin-left:auto;color:var(--accent);font-weight:600;text-decoration:none;white-space:nowrap}
+  .guide-link:hover{text-decoration:underline}
   .syncdot{width:9px;height:9px;border-radius:50%;background:var(--hint);flex-shrink:0}
   .syncdot.on{background:var(--accent)} .syncdot.off{background:var(--red)} .syncdot.local{background:var(--amber)}
 
@@ -183,7 +187,10 @@
 <body>
 <header>
   <div class="hbar">
-    <div class="logo"><span class="dot"></span>HYROX</div>
+    <div class="brandbox">
+      <div class="brandtitle">HYROX<span class="slash">/</span>LIVE</div>
+      <div class="brandsub">CRONÓMETRO · SPLITS · LEADERBOARD</div>
+    </div>
     <div class="tabs">
       <button id="t-setup" class="active" onclick="go('setup')">Atletas</button>
       <button id="t-race" onclick="go('race')">Tablero</button>
@@ -191,7 +198,7 @@
       <button id="t-tv" onclick="go('tv')">Pantalla TV</button>
     </div>
   </div>
-  <div class="syncbar"><span class="syncdot" id="syncDot"></span><span id="syncTxt">Conectando…</span></div>
+  <div class="syncbar"><span class="syncdot" id="syncDot"></span><span id="syncTxt">Conectando…</span><a class="guide-link" href="guia_usuario_hyrox.html" target="_blank" rel="noopener">Guía de uso ↗</a></div>
 </header>
 
 <main class="wrap">

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de uso · Cronómetro y Leaderboard Hyrox</title>
+<style>
+  :root{
+    --bg:#0f1115; --surface:#181b22; --surface2:#20242d; --surface3:#262b35; --line:#2c313c;
+    --text:#f2f4f8; --muted:#9aa3b2; --hint:#6b7385;
+    --accent:#1d9e75; --accent-d:#0f6e56;
+    --run:#378add; --run-t:#85b7eb;
+    --station:#ef9f27; --station-t:#fac775;
+    --finish:#7f77dd; --finish-t:#aaa3ec;
+    --gold:#f5c451;
+    --radius:14px; --radius-sm:9px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media(prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{animation:none!important;transition:none!important} }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.01em}
+  a{color:var(--accent);text-decoration:none}
+  code,.mono{font-family:var(--mono)}
+  .kbd{font-family:var(--mono);font-size:.85em;background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;white-space:nowrap;color:var(--text)}
+
+  /* ---------- layout ---------- */
+  .shell{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:232px 1fr;gap:40px;padding:0 24px}
+  nav.side{position:sticky;top:0;align-self:start;height:100vh;padding:28px 0;overflow-y:auto}
+  nav.side .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.22em;font-size:15px;margin-bottom:4px}
+  nav.side .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  nav.side .sub{color:var(--hint);font-size:12px;letter-spacing:.04em;margin:0 0 22px}
+  nav.side ol{list-style:none;margin:0;padding:0;counter-reset:s}
+  nav.side a{display:block;color:var(--muted);padding:7px 12px 7px 0;font-size:14px;border-left:2px solid transparent;padding-left:14px;transition:.15s}
+  nav.side a:hover{color:var(--text)}
+  nav.side a.on{color:var(--text);border-left-color:var(--accent)}
+  main{padding:56px 0 120px;min-width:0}
+
+  /* ---------- hero ---------- */
+  .hero{margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+  .hero h1{font-size:clamp(30px,5vw,46px);line-height:1.05;margin:14px 0 16px}
+  .hero p.lede{font-size:18px;color:var(--muted);max-width:60ch;margin:0}
+  .live{display:inline-flex;align-items:center;gap:8px;color:var(--accent);font-weight:700;font-size:13px;margin-top:20px}
+  .live .blink{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ---------- signature: riel de 16 segmentos ---------- */
+  .rail{display:flex;gap:5px;margin:30px 0 8px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto}
+  .seg{flex:1 0 auto;min-width:42px;text-align:center;border-radius:8px;padding:10px 6px;font-family:var(--mono);font-size:12px;font-weight:700;border:1px solid transparent}
+  .seg.r{background:rgba(55,138,221,.14);color:var(--run-t);border-color:rgba(55,138,221,.35)}
+  .seg.e{background:rgba(239,159,39,.14);color:var(--station-t);border-color:rgba(239,159,39,.35)}
+  .rail-legend{display:flex;gap:18px;font-size:13px;color:var(--muted);margin-bottom:36px;flex-wrap:wrap}
+  .rail-legend b{font-weight:600;color:var(--text)}
+  .swatch{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:6px}
+  .swatch.r{background:var(--run)} .swatch.e{background:var(--station)}
+
+  /* ---------- flow chips ---------- */
+  .flow{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 44px}
+  .chip{font-size:13px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:7px 14px;color:var(--muted)}
+  .chip b{color:var(--text);font-weight:700;font-family:var(--mono);margin-right:6px}
+
+  /* ---------- sections ---------- */
+  section{margin:0 0 64px;scroll-margin-top:24px}
+  section > .snum{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.12em}
+  section > h2{font-size:26px;margin:8px 0 6px}
+  section > .intro{color:var(--muted);max-width:66ch;margin:0 0 24px}
+  h3{font-size:18px;margin:32px 0 10px}
+  p{margin:0 0 14px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin:6px 0}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin:16px 0}
+  .card h4{font-size:16px;margin-bottom:8px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){ .grid2{grid-template-columns:1fr} }
+
+  .steps{list-style:none;counter-reset:st;padding:0;margin:16px 0}
+  .steps li{counter-increment:st;position:relative;padding:14px 0 14px 52px;border-bottom:1px solid var(--line)}
+  .steps li:last-child{border-bottom:none}
+  .steps li::before{content:counter(st);position:absolute;left:0;top:12px;width:34px;height:34px;border-radius:9px;background:var(--surface2);border:1px solid var(--line);color:var(--accent);font-family:var(--mono);font-weight:700;display:flex;align-items:center;justify-content:center}
+  .steps li b{color:var(--text)}
+
+  .note{border-left:3px solid var(--accent);background:rgba(29,158,117,.08);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .note.warn{border-left-color:var(--station);background:rgba(239,159,39,.09)}
+  .note .lbl{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+
+  /* botón-demo (para ilustrar controles reales) */
+  .btnrow{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 6px;align-items:center}
+  .demo{font-family:var(--font);font-weight:700;font-size:14px;border-radius:8px;padding:9px 14px;border:1px solid var(--line);background:var(--surface2);color:var(--text)}
+  .demo.start{background:var(--accent);color:#04140f;border:none}
+  .demo.mark{background:var(--run);color:#04203c;border:none}
+  .demo.mark.e{background:var(--station);color:#3a2602}
+  .demo.ghost{background:transparent;color:var(--muted)}
+  .demo.fin{background:transparent;color:var(--finish-t);border-color:var(--line)}
+
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin:16px 0}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  td.k{white-space:nowrap}
+  td.k .kbd{font-weight:700}
+  tbody tr:hover{background:var(--surface)}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .pill.wait{background:var(--surface2);color:var(--muted)}
+  .pill.run{background:rgba(55,138,221,.16);color:var(--run-t)}
+  .pill.fin{background:rgba(29,158,117,.16);color:#5dcaa5}
+
+  footer{border-top:1px solid var(--line);margin-top:40px;padding-top:24px;color:var(--hint);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media(max-width:860px){
+    .shell{grid-template-columns:1fr;gap:0}
+    nav.side{position:static;height:auto;padding:22px 0 0}
+    nav.side ol{display:flex;flex-wrap:wrap;gap:4px}
+    nav.side a{border-left:none;border-bottom:2px solid transparent;padding:6px 10px}
+    nav.side a.on{border-left:none;border-bottom-color:var(--accent)}
+    main{padding:32px 0 90px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <nav class="side" aria-label="Índice">
+    <div class="brand"><span class="dot"></span>HYROX</div>
+    <p class="sub">Guía de uso</p>
+    <ol>
+      <li><a href="#intro" class="on">Qué es la app</a></li>
+      <li><a href="#conceptos">Conceptos básicos</a></li>
+      <li><a href="#atletas">1 · Registrar atletas</a></li>
+      <li><a href="#tablero">2 · Cronometrar</a></li>
+      <li><a href="#tv">3 · Pantalla TV</a></li>
+      <li><a href="#resultados">4 · Resultados</a></li>
+      <li><a href="#sync">Dispositivos y sync</a></li>
+      <li><a href="#problemas">Solución de problemas</a></li>
+      <li><a href="#referencia">Referencia rápida</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ===================== HERO ===================== -->
+    <header class="hero" id="intro">
+      <div class="eyebrow">Cronómetro y leaderboard en vivo</div>
+      <h1>Cronometra una carrera Hyrox y muéstrala en pantalla, en tiempo real.</h1>
+      <p class="lede">Una sola app para registrar atletas, marcar sus 16 tramos a mano conforme cruzan, y proyectar la clasificación en una TV — con páginas individuales por atleta. Sin instalar nada: funciona en el navegador.</p>
+      <div class="live"><span class="blink"></span>EN VIVO</div>
+
+      <div class="rail" aria-label="Estructura de una carrera Hyrox: 16 tramos alternando carrera y estación">
+        <div class="seg r">R1</div><div class="seg e">E1</div>
+        <div class="seg r">R2</div><div class="seg e">E2</div>
+        <div class="seg r">R3</div><div class="seg e">E3</div>
+        <div class="seg r">R4</div><div class="seg e">E4</div>
+        <div class="seg r">R5</div><div class="seg e">E5</div>
+        <div class="seg r">R6</div><div class="seg e">E6</div>
+        <div class="seg r">R7</div><div class="seg e">E7</div>
+        <div class="seg r">R8</div><div class="seg e">E8</div>
+      </div>
+      <div class="rail-legend">
+        <span><span class="swatch r"></span><b>R1–R8</b> · ocho carreras de 1 km</span>
+        <span><span class="swatch e"></span><b>E1–E8</b> · ocho estaciones de trabajo</span>
+        <span>= <b>16 tramos</b> por atleta</span>
+      </div>
+
+      <div class="flow">
+        <span class="chip"><b>1</b>Registra atletas</span>
+        <span class="chip"><b>2</b>Elige un código de sesión</span>
+        <span class="chip"><b>3</b>Inicia (solo o en tanda)</span>
+        <span class="chip"><b>4</b>Marca cada tramo</span>
+        <span class="chip"><b>5</b>Proyecta la TV</span>
+        <span class="chip"><b>6</b>Exporta resultados</span>
+      </div>
+    </header>
+
+    <!-- ===================== CONCEPTOS ===================== -->
+    <section id="conceptos">
+      <div class="snum">EMPIEZA AQUÍ</div>
+      <h2>Conceptos básicos</h2>
+      <p class="intro">Estos cuatro conceptos bastan para manejar toda la app. Las cuatro pestañas de arriba —Atletas, Tablero, Resultados y Pantalla TV— son las fases del evento, en orden.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Sesión</h4>
+          <p>Un <b>código de sesión</b> (por ejemplo <code>sabado-15-jun</code>) identifica un evento. Todas las pantallas que usen el mismo código comparten los mismos datos. Para un evento nuevo y limpio, cambia el código.</p>
+        </div>
+        <div class="card">
+          <h4>Atleta y dorsal</h4>
+          <p>Cada atleta tiene nombre, categoría (<code>Open</code>, <code>Pro</code>, <code>Doubles</code>, <code>Relay</code>) y un <b>dorsal</b> que se asigna solo, en orden. El dorsal se muestra como <code>#1</code>, <code>#2</code>…</p>
+        </div>
+        <div class="card">
+          <h4>Los 16 tramos</h4>
+          <p>La carrera alterna carrera y estación: <code>R1 → E1 → R2 → E2 …</code> hasta <code>E8</code>. Marcas un tramo cada vez que el atleta lo termina; la tarjeta avanza sola al siguiente.</p>
+        </div>
+        <div class="card">
+          <h4>Estado del atleta</h4>
+          <p><span class="pill wait">Por salir</span> aún no arranca · <span class="pill run">En pista</span> corriendo, con cronómetro activo · <span class="pill fin">Final</span> completó los 16 tramos.</p>
+        </div>
+      </div>
+
+      <h3>Las 8 estaciones, en orden</h3>
+      <table>
+        <thead><tr><th>#</th><th>Estación</th><th>#</th><th>Estación</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">E1</td><td>SkiErg 1000 m</td><td class="mono">E5</td><td>Rowing 1000 m</td></tr>
+          <tr><td class="mono">E2</td><td>Sled Push 50 m</td><td class="mono">E6</td><td>Farmers Carry 200 m</td></tr>
+          <tr><td class="mono">E3</td><td>Sled Pull 50 m</td><td class="mono">E7</td><td>Sandbag Lunges 100 m</td></tr>
+          <tr><td class="mono">E4</td><td>Burpee Broad Jump 80 m</td><td class="mono">E8</td><td>Wall Balls ×100</td></tr>
+        </tbody>
+      </table>
+
+      <h3>El indicador de sincronización</h3>
+      <p>Bajo la barra de pestañas, un punto de color te dice cómo se están guardando los datos:</p>
+      <ul>
+        <li><b style="color:var(--accent)">Verde</b> — sincronizado entre dispositivos.</li>
+        <li><b style="color:var(--station-t)">Ámbar</b> — modo local: todo se guarda en este equipo (funciona igual, sin conexión).</li>
+        <li><b style="color:#e24b4a">Rojo</b> — sin conexión al servidor; se sigue guardando en local.</li>
+      </ul>
+    </section>
+
+    <!-- ===================== ATLETAS ===================== -->
+    <section id="atletas">
+      <div class="snum">PASO 1 · PESTAÑA «ATLETAS»</div>
+      <h2>Registrar atletas</h2>
+      <p class="intro">Prepara la lista antes del evento. Puedes cargarlos uno por uno o importar una hoja completa.</p>
+
+      <h3>Uno por uno</h3>
+      <ol class="steps">
+        <li>Escribe el <b>nombre</b> en el campo de texto (o pulsa <span class="kbd">Enter</span> para agregar rápido).</li>
+        <li>Elige la <b>categoría</b> en el menú.</li>
+        <li>Pulsa <span class="demo start" style="display:inline-block">Agregar</span>. El dorsal se asigna automáticamente.</li>
+      </ol>
+      <p>Para quitar a alguien, usa <b>Quitar</b> junto a su nombre en la lista.</p>
+
+      <h3>Importar desde Excel o CSV</h3>
+      <p>Con <span class="demo ghost" style="display:inline-block">⬆ Importar Excel/CSV</span> subes una hoja con muchos atletas de golpe. Acepta <code>.xlsx</code>, <code>.xls</code> y <code>.csv</code>.</p>
+      <div class="note">
+        <span class="lbl">Formato de la hoja</span>
+        Una columna <b>Nombre</b> (obligatoria) y, opcional, una columna <b>Categoría</b>. Si falta la categoría, se asigna <code>Open</code>. Descarga la <b>plantilla</b> desde la misma pantalla para no equivocarte con las columnas.
+      </div>
+
+      <h3>Elegir el código de sesión</h3>
+      <p>En la tarjeta <b>«Sesión de carrera»</b>, escribe un código y pulsa <span class="demo" style="display:inline-block">Aplicar</span>. Úsalo consistente en todas las pantallas del evento. Cámbialo cuando empieces un evento distinto para arrancar con una lista limpia.</p>
+    </section>
+
+    <!-- ===================== TABLERO ===================== -->
+    <section id="tablero">
+      <div class="snum">PASO 2 · PESTAÑA «TABLERO»</div>
+      <h2>Cronometrar la carrera</h2>
+      <p class="intro">El tablero es donde trabajas durante la carrera. Cada atleta es una tarjeta con su cronómetro, su tramo actual y sus botones.</p>
+
+      <h3>Filtrar la vista</h3>
+      <p>Las fichas de arriba filtran las tarjetas: <b>Activos</b>, <b>Por salir</b>, <b>Todos</b> (vista por defecto) y <b>Finalizados</b>. Arriba del todo, un resumen muestra cuántos hay <b>en pista</b>, <b>por salir</b> y <b>finalizados</b>.</p>
+
+      <h3>Dar la salida</h3>
+      <div class="btnrow">
+        <span class="demo start">▶ Iniciar</span>
+        <span style="color:var(--muted);font-size:14px">arranca a un solo atleta.</span>
+      </div>
+      <p>Para dar una <b>salida en grupo</b> con el mismo tiempo de arranque para todos:</p>
+      <ol class="steps">
+        <li>Marca la <b>casilla</b> (arriba a la izquierda de la tarjeta) de cada atleta «Por salir» que quieras incluir.</li>
+        <li>Aparece una barra con el conteo; pulsa <span class="demo start" style="display:inline-block">▶ Iniciar tanda</span>.</li>
+        <li>Todos arrancan exactamente al mismo instante. Usa <b>Limpiar</b> para deshacer la selección antes de iniciar.</li>
+      </ol>
+
+      <h3>Marcar cada tramo</h3>
+      <div class="btnrow">
+        <span class="demo mark">Marcar 3/16</span>
+        <span style="color:var(--muted);font-size:14px">registra el tramo actual y avanza al siguiente.</span>
+      </div>
+      <p>Pulsa <b>Marcar</b> justo cuando el atleta termina el tramo (una carrera o una estación). El botón muestra el avance (<code>3/16</code>) y toma el color del tipo de tramo: <b style="color:var(--run-t)">azul</b> para carrera, <b style="color:var(--station-t)">ámbar</b> para estación. El cronómetro guarda el parcial y sigue corriendo hacia el siguiente tramo.</p>
+
+      <h3>Pausar y reanudar</h3>
+      <div class="btnrow">
+        <span class="demo ghost">⏸</span><span class="demo ghost">▶</span>
+        <span style="color:var(--muted);font-size:14px">detiene o continúa el cronómetro de ese atleta.</span>
+      </div>
+
+      <h3>Deshacer un error</h3>
+      <div class="btnrow">
+        <span class="demo ghost">↩</span>
+        <span style="color:var(--muted);font-size:14px">deshace la última marca de ese atleta.</span>
+      </div>
+      <p>Si te equivocaste de atleta o diste doble clic y marcaste de más, pulsa <b>↩</b> para revertir la última marca. Puedes deshacer varias veces seguidas. Lo importante: el cronómetro <b>no retrocede</b> — conserva la hora de salida y sigue contando de forma continua, así que el tramo en curso queda con el tiempo correcto.</p>
+
+      <h3>Finalizar (y reabrir)</h3>
+      <div class="btnrow">
+        <span class="demo fin">🏁</span>
+        <span style="color:var(--muted);font-size:14px">cierra la carrera del atleta antes de tiempo.</span>
+      </div>
+      <p>Al marcar el tramo 16 el atleta finaliza solo. Si necesitas cerrarlo antes (abandono, corte de tiempo), usa <b>🏁</b>; te pedirá confirmar. ¿Lo cerraste por error? En la tarjeta de un atleta finalizado, <b>↩ Deshacer</b> lo reabre y reanuda el cronómetro desde la salida.</p>
+
+      <div class="note warn">
+        <span class="lbl">Consejo de campo</span>
+        Mantén la vista en <b>Todos</b> mientras cronometras: verás salir, avanzar y finalizar a cada atleta sin perder de vista al resto.
+      </div>
+    </section>
+
+    <!-- ===================== TV ===================== -->
+    <section id="tv">
+      <div class="snum">PASO 3 · PESTAÑA «PANTALLA TV»</div>
+      <h2>Mostrar la clasificación en pantalla</h2>
+      <p class="intro">Un leaderboard grande y legible, pensado para proyectar. Ordena a los finalizados por tiempo y muestra a los que van en curso por avance.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>⛶ Pantalla completa</h4>
+          <p>Ocupa toda la pantalla del dispositivo actual. Ideal si conectas este mismo equipo a la TV por HDMI o Chromecast. Sal con <b>✕ Salir</b>.</p>
+        </div>
+        <div class="card">
+          <h4>↗ Abrir en ventana nueva</h4>
+          <p>Abre el leaderboard en una ventana aparte que puedes arrastrar a un segundo monitor o proyector. Se actualiza en vivo junto con el tablero.</p>
+        </div>
+      </div>
+      <p>Cada fila muestra dorsal, nombre, categoría, suma de carrera, suma de estaciones, avance <code>n/16</code>, el último tramo marcado y el tiempo total. Los tres primeros se resaltan en oro, plata y bronce.</p>
+      <div class="note">
+        <span class="lbl">Mismo equipo, sin configurar nada</span>
+        La ventana nueva y las páginas de atleta leen los datos de este navegador y se refrescan solas. Para proyectar en <b>otro</b> dispositivo hace falta sincronización entre equipos — ver la sección de <a href="#sync">Dispositivos y sync</a>.
+      </div>
+    </section>
+
+    <!-- ===================== RESULTADOS ===================== -->
+    <section id="resultados">
+      <div class="snum">PASO 4 · PESTAÑA «RESULTADOS»</div>
+      <h2>Revisar y exportar resultados</h2>
+      <p class="intro">La tabla completa de la sesión, ordenable y exportable, con el desglose tramo por tramo de cada atleta.</p>
+
+      <h3>Ordenar y ver detalle</h3>
+      <ul>
+        <li>Toca cualquier <b>encabezado de columna</b> (#, Atleta, Cat., Tiempo total, Σ Run, Σ Estaciones, Split actual) para ordenar; tócalo otra vez para invertir el orden.</li>
+        <li>Toca el <b>nombre</b> de un atleta para ver el <b>desglose de sus 16 tramos</b>.</li>
+        <li>Desde ese desglose, <b>↗ Página individual</b> abre una vista dedicada de ese atleta, apta para compartir.</li>
+      </ul>
+
+      <h3>Exportar</h3>
+      <div class="btnrow">
+        <span class="demo ghost">Exportar CSV</span>
+        <span style="color:var(--muted);font-size:14px">descarga un archivo con todos los tiempos y los 16 parciales.</span>
+      </div>
+      <p>El CSV incluye dorsal, nombre, categoría, tiempo total, sumas de carrera y estaciones, avance, estado, el enlace individual y cada uno de los 16 tramos. Se abre en Excel o Google Sheets.</p>
+
+      <h3>Reiniciar tiempos</h3>
+      <div class="note warn">
+        <span class="lbl">Cuidado</span>
+        <b>Reiniciar tiempos</b> borra todos los parciales de la sesión pero <b>conserva a los atletas</b>. Úsalo para repetir un evento con la misma lista. Pide confirmación porque no se puede deshacer.
+      </div>
+    </section>
+
+    <!-- ===================== SYNC ===================== -->
+    <section id="sync">
+      <div class="snum">DISPOSITIVOS</div>
+      <h2>Un equipo, varias pantallas o varios equipos</h2>
+      <p class="intro">La app guarda todo localmente por defecto y suma sincronización entre dispositivos cuando está configurada.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Mismo equipo</h4>
+          <p>Funciona sin configurar nada. El progreso se guarda en el navegador y se comparte al instante con la ventana de TV y las páginas de atleta que abras desde aquí. Recargar la página <b>no pierde</b> el avance.</p>
+        </div>
+        <div class="card">
+          <h4>Entre dispositivos</h4>
+          <p>Para que un móvil cronometre y una laptop proyecte, hace falta habilitar la sincronización en la nube (Firebase). Cuando está activa, el indicador se pone <b style="color:var(--accent)">verde</b> y todas las pantallas con el mismo código de sesión se actualizan juntas.</p>
+        </div>
+      </div>
+
+      <h3>Abrir pantallas por enlace</h3>
+      <p>El leaderboard y las páginas de atleta aceptan la sesión en la dirección:</p>
+      <table>
+        <thead><tr><th>Pantalla</th><th>Enlace</th></tr></thead>
+        <tbody>
+          <tr><td>Leaderboard TV</td><td><code>leaderboard.html?s=</code><span class="mono">tu-sesión</span></td></tr>
+          <tr><td>Página de un atleta</td><td><code>atleta.html?s=</code><span class="mono">tu-sesión</span><code>&amp;a=</code><span class="mono">Nombre</span></td></tr>
+        </tbody>
+      </table>
+      <p>Los tres archivos —<code>index.html</code>, <code>leaderboard.html</code> y <code>atleta.html</code>— deben estar en la misma carpeta (o mismo sitio) para que compartan datos.</p>
+    </section>
+
+    <!-- ===================== PROBLEMAS ===================== -->
+    <section id="problemas">
+      <div class="snum">SI ALGO NO CUADRA</div>
+      <h2>Solución de problemas</h2>
+      <p class="intro">Los casos más comunes y cómo resolverlos.</p>
+
+      <div class="card">
+        <h4>La lista de «Por salir» no muestra el botón Iniciar</h4>
+        <p>Cambia el filtro a <b>Todos</b> o <b>Por salir</b>. El botón <b>▶ Iniciar</b> solo aparece en atletas que aún no han arrancado.</p>
+      </div>
+      <div class="card">
+        <h4>Marqué un tramo por error</h4>
+        <p>Pulsa <b>↩</b> en la tarjeta del atleta para deshacer la última marca (puedes repetir). Si cerraste una carrera por error, usa <b>↩ Deshacer</b> en la tarjeta de finalizado para reabrirla.</p>
+      </div>
+      <div class="card">
+        <h4>La TV en otro dispositivo aparece vacía</h4>
+        <p>La sincronización entre equipos no está activa. Proyecta desde el <b>mismo</b> equipo (Pantalla completa o ventana nueva), o habilita la sincronización en la nube. Verifica también que ambas pantallas usen el <b>mismo código de sesión</b>.</p>
+      </div>
+      <div class="card">
+        <h4>Se perdió el avance al recargar</h4>
+        <p>Sube y abre los archivos desde un sitio real (por ejemplo tu página publicada), no abriéndolos con doble clic desde el disco: algunos navegadores aíslan el almacenamiento en ese modo. Comprueba además que no cambiaste el código de sesión sin querer.</p>
+      </div>
+      <div class="card">
+        <h4>El indicador no se pone verde</h4>
+        <p>La app sigue funcionando en local (ámbar). Para sincronizar entre dispositivos, la sincronización en la nube debe estar configurada y con permisos de escritura. Es opcional: para un solo equipo no la necesitas.</p>
+      </div>
+    </section>
+
+    <!-- ===================== REFERENCIA ===================== -->
+    <section id="referencia">
+      <div class="snum">A LA MANO</div>
+      <h2>Referencia rápida de controles</h2>
+      <table>
+        <thead><tr><th>Control</th><th>Qué hace</th></tr></thead>
+        <tbody>
+          <tr><td class="k"><span class="kbd">▶ Iniciar</span></td><td>Da la salida a un atleta.</td></tr>
+          <tr><td class="k"><span class="kbd">▶ Iniciar tanda</span></td><td>Arranca a todos los seleccionados con la misma hora.</td></tr>
+          <tr><td class="k"><span class="kbd">☐</span> casilla</td><td>Selecciona atletas «Por salir» para una tanda.</td></tr>
+          <tr><td class="k"><span class="kbd">Marcar n/16</span></td><td>Registra el tramo actual y pasa al siguiente.</td></tr>
+          <tr><td class="k"><span class="kbd">⏸</span> / <span class="kbd">▶</span></td><td>Pausa o reanuda el cronómetro del atleta.</td></tr>
+          <tr><td class="k"><span class="kbd">↩</span></td><td>Deshace la última marca (o reabre un finalizado).</td></tr>
+          <tr><td class="k"><span class="kbd">🏁</span></td><td>Finaliza la carrera del atleta antes de tiempo.</td></tr>
+          <tr><td class="k"><span class="kbd">⛶</span></td><td>Leaderboard a pantalla completa.</td></tr>
+          <tr><td class="k"><span class="kbd">↗</span></td><td>Abre el leaderboard en ventana nueva.</td></tr>
+          <tr><td class="k"><span class="kbd">Exportar CSV</span></td><td>Descarga todos los tiempos y parciales.</td></tr>
+        </tbody>
+      </table>
+
+      <footer>
+        <span>Cronómetro y Leaderboard Hyrox · Guía de uso</span>
+        <span class="mono">R1–E8 · 16 tramos</span>
+      </footer>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Resaltar en el índice la sección visible
+  const links=[...document.querySelectorAll('nav.side a')];
+  const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  const obs=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(l=>l.classList.remove('on'));
+        const a=map.get(e.target.id); if(a) a.classList.add('on');
+      }
+    });
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('main section, #intro').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
