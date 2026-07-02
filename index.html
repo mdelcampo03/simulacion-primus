@@ -707,7 +707,9 @@ function resetSession(){
   const n=(state.athletes&&state.athletes.length)||0;
   if(!confirm(`¿Vaciar la sesión «${sessionId}»? Se borran ${n} atleta(s) y todos sus tiempos para empezar de cero. Esto no se puede deshacer.`)) return;
   state={athletes:[],nextBib:1};
-  renderAll(); push(); toast("Sesión vaciada · empieza limpio");
+  const box=document.getElementById("sessionId");
+  if(box){ box.value=""; box.focus(); }   // limpia la caja para escribir el código nuevo
+  renderAll(); push(); toast("Sesión vaciada · escribe un código nuevo");
 }
 function resetRace(){
   if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
