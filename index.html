@@ -204,7 +204,20 @@
   <section id="view-setup">
     <div id="cfgBanner"></div>
     <div class="card">
-      <h2>Registrar atletas</h2>
+      <h2>Paso 1 · Código de sesión</h2>
+      <p class="sub" style="margin-top:8px">Define primero el código de esta carrera. Todas las pantallas con el mismo <strong>código de sesión</strong> comparten datos. <strong>Usa un código nuevo para cada evento</strong> para no mezclar el histórico.</p>
+      <div class="row" style="margin-top:12px">
+        <input type="text" id="sessionId" placeholder="ej. sabado-15-jun" onchange="changeSession()">
+        <button class="btn" onclick="changeSession()">Aplicar</button>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-danger btn-sm" onclick="resetSession()">Nueva sesión</button>
+        <span class="muted-note" style="margin:0">Empieza limpio: borra los atletas y tiempos de esta sesión. Hazlo si reutilizas un código anterior, para no mezclar atletas de otro día.</span>
+      </div>
+      <p class="muted-note">Para mostrar en una TV en otro dispositivo, abre esta misma página y ve a la pestaña «Pantalla TV», o usa el botón de ventana nueva desde ahí.</p>
+    </div>
+    <div class="card">
+      <h2>Paso 2 · Registrar atletas</h2>
       <p class="sub">El dorsal se asigna solo. Los cambios se sincronizan con la pantalla en vivo.</p>
       <div class="athlete-add" style="margin-top:14px">
         <div class="field"><input type="text" id="newName" placeholder="Nombre del atleta" onkeydown="if(event.key==='Enter')addAthlete()"></div>
@@ -220,15 +233,6 @@
       </div>
       <p class="muted-note">Carga masiva: sube un archivo con una columna <strong>Nombre</strong> y, opcional, <strong>Categoría</strong> (Open, Pro, Doubles, Relay). Sin categoría se asigna Open. Acepta .xlsx, .xls y .csv.</p>
       <div class="athlete-list" id="athleteList"></div>
-    </div>
-    <div class="card">
-      <h3 style="font-size:15px">Sesión de carrera</h3>
-      <p class="sub" style="margin-top:8px">Todas las pantallas con el mismo <strong>código de sesión</strong> comparten datos. Cámbialo para un evento nuevo y limpio.</p>
-      <div class="row" style="margin-top:10px">
-        <input type="text" id="sessionId" placeholder="ej. sabado-15-jun" onchange="changeSession()">
-        <button class="btn" onclick="changeSession()">Aplicar</button>
-      </div>
-      <p class="muted-note">Para mostrar en una TV en otro dispositivo, abre esta misma página y ve a la pestaña «Pantalla TV», o usa el botón de ventana nueva desde ahí.</p>
     </div>
   </section>
 
@@ -411,12 +415,31 @@ function renderAll(){ renderAthletes(); renderBoard(); renderResults(); if(curre
 function changeSession(){
   const v=document.getElementById("sessionId").value.trim().toLowerCase().replace(/[^a-z0-9\-]/g,"-");
   if(!v) return;
+  if(v===sessionId){ toast("Ya estás en la sesión «"+v+"»"); return; }
+
+  // Datos ya guardados de la sesión destino (si los hay)
+  let saved=null; try{ saved=JSON.parse(localStorage.getItem("hyrox_"+v)); }catch(e){}
+  const targetHasData = !!(saved && saved.athletes && saved.athletes.length);
+  const currentAthletes = (state.athletes && state.athletes.length) ? state.athletes.length : 0;
+
+  // Si la sesión destino está vacía pero hay atletas cargados, ofrecer llevarlos
+  // (así funciona el orden de la guía: registrar atletas y luego nombrar la sesión).
+  let carry=false;
+  if(!targetHasData && currentAthletes>0){
+    carry = confirm(`Tienes ${currentAthletes} atleta(s) cargado(s) y la sesión «${v}» está vacía.\n\nAceptar: llevarlos a «${v}».\nCancelar: empezar «${v}» vacía (los atletas quedan guardados en la sesión anterior).`);
+  }
+
   sessionId=v; localStorage.setItem("hyrox_session",sessionId);
-  state=loadLocal()||{athletes:[],nextBib:1};
+  if(targetHasData){ state=saved; }               // cargar la sesión destino existente
+  else if(carry){ /* conservar los atletas actuales para la nueva sesión */ }
+  else { state={athletes:[],nextBib:1}; }          // sesión nueva y limpia
+
   setupChannel();
+  if(carry){ push(); } else { saveLocal(); }       // persistir bajo la nueva clave
   if(db){ listenRemote(); }
   setSync(CONFIGURED?"on":"local",(CONFIGURED?"Sincronizado":"Modo local")+" · sesión: "+sessionId);
-  renderAll(); toast("Sesión: "+sessionId);
+  renderAll();
+  toast(carry ? `${currentAthletes} atleta(s) → sesión «${sessionId}»` : "Sesión: "+sessionId);
 }
 
 function addAthlete(){
@@ -680,6 +703,12 @@ function exportCSV(){
   link.href=url; link.download="resultados_hyrox_"+sessionId+"_"+new Date().toISOString().slice(0,10)+".csv";
   document.body.appendChild(link); link.click(); link.remove(); toast("CSV exportado");
 }
+function resetSession(){
+  const n=(state.athletes&&state.athletes.length)||0;
+  if(!confirm(`¿Vaciar la sesión «${sessionId}»? Se borran ${n} atleta(s) y todos sus tiempos para empezar de cero. Esto no se puede deshacer.`)) return;
+  state={athletes:[],nextBib:1};
+  renderAll(); push(); toast("Sesión vaciada · empieza limpio");
+}
 function resetRace(){
   if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
   state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0;a._undo=[]; });
@@ -809,7 +838,7 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,undoLast,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,resetSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,undoLast,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();

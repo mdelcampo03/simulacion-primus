@@ -165,8 +165,8 @@
       </div>
 
       <div class="flow">
-        <span class="chip"><b>1</b>Registra atletas</span>
-        <span class="chip"><b>2</b>Elige un código de sesión</span>
+        <span class="chip"><b>1</b>Elige (o vacía) la sesión</span>
+        <span class="chip"><b>2</b>Registra atletas</span>
         <span class="chip"><b>3</b>Inicia (solo o en tanda)</span>
         <span class="chip"><b>4</b>Marca cada tramo</span>
         <span class="chip"><b>5</b>Proyecta la TV</span>
@@ -222,10 +222,23 @@
     <!-- ===================== ATLETAS ===================== -->
     <section id="atletas">
       <div class="snum">PASO 1 · PESTAÑA «ATLETAS»</div>
-      <h2>Registrar atletas</h2>
-      <p class="intro">Prepara la lista antes del evento. Puedes cargarlos uno por uno o importar una hoja completa.</p>
+      <h2>Preparar la sesión y los atletas</h2>
+      <p class="intro">Antes de registrar a nadie, define el código de sesión (y, si reutilizas uno, vacíalo). Después carga la lista. Así el histórico de cada evento queda separado.</p>
 
-      <h3>Uno por uno</h3>
+      <h3>Primero: el código de sesión</h3>
+      <ol class="steps">
+        <li>En <b>«Paso 1 · Código de sesión»</b>, escribe un código para esta carrera (por ejemplo <code>sabado-15-jun</code>).</li>
+        <li>Pulsa <span class="demo" style="display:inline-block">Aplicar</span>. Úsalo igual en todas las pantallas del evento.</li>
+      </ol>
+      <div class="note warn">
+        <span class="lbl">Un código por evento</span>
+        Usa un <b>código nuevo</b> cada vez. Si reutilizas uno de otro día, mezclarías atletas de eventos distintos y el histórico quedaría revuelto.
+      </div>
+
+      <h3>Empieza limpio</h3>
+      <p>Si vas a reutilizar un código o quieres partir de cero, pulsa <span class="demo ghost" style="display:inline-block;color:var(--station-t)">Nueva sesión</span>. Borra los atletas y tiempos de esa sesión (pide confirmación y no se puede deshacer), dejándola lista para el nuevo evento.</p>
+
+      <h3>Registrar atletas · uno por uno</h3>
       <ol class="steps">
         <li>Escribe el <b>nombre</b> en el campo de texto (o pulsa <span class="kbd">Enter</span> para agregar rápido).</li>
         <li>Elige la <b>categoría</b> en el menú.</li>
@@ -240,8 +253,10 @@
         Una columna <b>Nombre</b> (obligatoria) y, opcional, una columna <b>Categoría</b>. Si falta la categoría, se asigna <code>Open</code>. Descarga la <b>plantilla</b> desde la misma pantalla para no equivocarte con las columnas.
       </div>
 
-      <h3>Elegir el código de sesión</h3>
-      <p>En la tarjeta <b>«Sesión de carrera»</b>, escribe un código y pulsa <span class="demo" style="display:inline-block">Aplicar</span>. Úsalo consistente en todas las pantallas del evento. Cámbialo cuando empieces un evento distinto para arrancar con una lista limpia.</p>
+      <div class="note">
+        <span class="lbl">¿Registraste antes de nombrar la sesión?</span>
+        No pasa nada: al aplicar un código nuevo, la app te preguntará si quieres <b>llevar los atletas cargados</b> a esa sesión o empezarla vacía. Nada se pierde.
+      </div>
     </section>
 
     <!-- ===================== TABLERO ===================== -->
