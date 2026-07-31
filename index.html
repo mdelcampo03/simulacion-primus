@@ -24,13 +24,16 @@
   .wrap{max-width:960px;margin:0 auto;padding:0 16px}
 
   header{position:sticky;top:0;z-index:20;background:rgba(15,17,21,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-  .hbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;max-width:960px;margin:0 auto;gap:10px}
-  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:.5px}
-  .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent)}
+  .hbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;max-width:960px;margin:0 auto;gap:10px;flex-wrap:wrap}
+  .brandbox{display:flex;flex-direction:column;gap:4px;line-height:1}
+  .brandtitle{font-weight:900;font-size:clamp(2rem,6vw,3.8rem);letter-spacing:-.03em;line-height:.9;color:#e8ff00;text-transform:uppercase}
+  .brandsub{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
   .tabs{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:4px;flex-wrap:wrap}
   .tabs button{background:transparent;color:var(--muted);padding:8px 13px;font-weight:600;border-radius:6px;transition:.15s;font-size:14px}
   .tabs button.active{background:var(--accent);color:#04140f}
   .syncbar{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 16px;max-width:960px;margin:0 auto}
+  .guide-link{margin-left:auto;color:var(--accent);font-weight:600;text-decoration:none;white-space:nowrap}
+  .guide-link:hover{text-decoration:underline}
   .syncdot{width:9px;height:9px;border-radius:50%;background:var(--hint);flex-shrink:0}
   .syncdot.on{background:var(--accent)} .syncdot.off{background:var(--red)} .syncdot.local{background:var(--amber)}
 
@@ -52,6 +55,7 @@
   .btn-block{width:100%}
 
   .athlete-add{display:flex;gap:8px}
+  .import-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .athlete-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
   .a-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px}
   .a-bib{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:38px}
@@ -109,6 +113,10 @@
   .wave-start:hover{background:var(--accent-d);color:#fff}
   .sec-btn{flex:0 0 auto!important;padding:16px 14px!important;color:var(--muted)!important;border-left:1px solid var(--line)!important}
   .finish-btn{background:transparent!important;color:var(--purple)!important;flex:0 0 auto!important;padding:16px 14px!important;border-left:1px solid var(--line)!important}
+  .undo-btn{background:transparent!important;color:var(--muted)!important;flex:0 0 auto!important;padding:16px 12px!important;border-left:1px solid var(--line)!important;font-size:17px!important}
+  .undo-btn:active{color:var(--text)!important;filter:brightness(1.15)}
+  .donebar .undo-fin{display:inline-block;margin-top:10px;padding:7px 16px!important;border:1px solid var(--line)!important;border-radius:var(--radius-sm);font-size:13px!important;font-weight:600;color:var(--muted)!important}
+  .donebar .undo-fin:hover{border-color:var(--purple)!important;color:var(--text)!important}
   .acard.finished .donebar{padding:14px;text-align:center;color:var(--accent);font-weight:700;font-size:14px}
   .acard.finished .donebar small{display:block;color:var(--muted);font-weight:400;font-family:var(--mono);margin-top:2px}
 
@@ -200,23 +208,39 @@
 <body>
 <header>
   <div class="hbar">
-    <div class="logo"><span class="dot"></span>HYROX</div>
+    <div class="brandbox">
+      <div class="brandtitle">HYROX - LIVE</div>
+      <div class="brandsub">CRONÓMETRO · SPLITS · LEADERBOARD</div>
+    </div>
     <div class="tabs">
-      <button id="t-setup" onclick="go('setup')">Atletas</button>
-      <button id="t-race" class="active" onclick="go('race')">Tablero</button>
+      <button id="t-setup" class="active" onclick="go('setup')">Atletas</button>
+      <button id="t-race" onclick="go('race')">Tablero</button>
       <button id="t-results" onclick="go('results')">Resultados</button>
       <button id="t-nfc" onclick="go('nfc')">NFC</button>
       <button id="t-tv" onclick="go('tv')">Pantalla TV</button>
     </div>
   </div>
-  <div class="syncbar"><span class="syncdot" id="syncDot"></span><span id="syncTxt">Conectando…</span></div>
+  <div class="syncbar"><span class="syncdot" id="syncDot"></span><span id="syncTxt">Conectando…</span><a class="guide-link" href="guia_usuario_hyrox.html" target="_blank" rel="noopener">Guía de uso ↗</a></div>
 </header>
 
 <main class="wrap">
-  <section id="view-setup" style="display:none">
+  <section id="view-setup">
     <div id="cfgBanner"></div>
     <div class="card">
-      <h2>Registrar atletas</h2>
+      <h2>Paso 1 · Código de sesión</h2>
+      <p class="sub" style="margin-top:8px">Define primero el código de esta carrera. Todas las pantallas con el mismo <strong>código de sesión</strong> comparten datos. <strong>Usa un código nuevo para cada evento</strong> para no mezclar el histórico.</p>
+      <div class="row" style="margin-top:12px">
+        <input type="text" id="sessionId" placeholder="ej. sabado-15-jun" onchange="changeSession()">
+        <button class="btn" onclick="changeSession()">Aplicar</button>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-danger btn-sm" onclick="resetSession()">Nueva sesión</button>
+        <span class="muted-note" style="margin:0">Empieza limpio: borra los atletas y tiempos de esta sesión. Hazlo si reutilizas un código anterior, para no mezclar atletas de otro día.</span>
+      </div>
+      <p class="muted-note">Para mostrar en una TV en otro dispositivo, abre esta misma página y ve a la pestaña «Pantalla TV», o usa el botón de ventana nueva desde ahí.</p>
+    </div>
+    <div class="card">
+      <h2>Paso 2 · Registrar atletas</h2>
       <p class="sub">El dorsal se asigna solo. Los cambios se sincronizan con la pantalla en vivo.</p>
       <div class="athlete-add" style="margin-top:14px">
         <div class="field"><input type="text" id="newName" placeholder="Nombre del atleta" onkeydown="if(event.key==='Enter')addAthlete()"></div>
@@ -225,26 +249,23 @@
         </select>
         <button class="btn-primary" onclick="addAthlete()">Agregar</button>
       </div>
-      <div class="athlete-list" id="athleteList"></div>
-    </div>
-    <div class="card">
-      <h3 style="font-size:15px">Sesión de carrera</h3>
-      <p class="sub" style="margin-top:8px">Todas las pantallas con el mismo <strong>código de sesión</strong> comparten datos. Cámbialo para un evento nuevo y limpio.</p>
-      <div class="row" style="margin-top:10px">
-        <input type="text" id="sessionId" placeholder="ej. sabado-15-jun" onchange="changeSession()">
-        <button class="btn" onclick="changeSession()">Aplicar</button>
+      <div class="import-row">
+        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importAthletes(event)">
+        <button class="btn btn-sm" onclick="triggerImport()">⬆ Importar Excel/CSV</button>
+        <a class="btn btn-sm" href="plantilla_atletas_hyrox.xlsx" download style="text-decoration:none;display:inline-flex;align-items:center">Descargar plantilla (Excel)</a>
       </div>
-      <p class="muted-note">Para mostrar en una TV en otro dispositivo, abre esta misma página y ve a la pestaña «Pantalla TV», o usa el botón de ventana nueva desde ahí.</p>
+      <p class="muted-note">Carga masiva: sube un archivo con una columna <strong>Nombre</strong> y, opcional, <strong>Categoría</strong> (Open, Pro, Doubles, Relay). Sin categoría se asigna Open. Acepta .xlsx, .xls y .csv.</p>
+      <div class="athlete-list" id="athleteList"></div>
     </div>
   </section>
 
-  <section id="view-race">
+  <section id="view-race" style="display:none">
     <div class="board-head">
       <h2>Tablero de cronometraje</h2>
       <div class="filter-chips" id="filterChips">
-        <button data-f="active" class="active" onclick="setFilter('active')">Activos</button>
+        <button data-f="active" onclick="setFilter('active')">Activos</button>
         <button data-f="waiting" onclick="setFilter('waiting')">Por salir</button>
-        <button data-f="all" onclick="setFilter('all')">Todos</button>
+        <button data-f="all" class="active" onclick="setFilter('all')">Todos</button>
         <button data-f="finished" onclick="setFilter('finished')">Finalizados</button>
       </div>
     </div>
@@ -347,7 +368,8 @@ function buildSteps(){
 let sessionId = localStorage.getItem("hyrox_session") || "sabado";
 let state = loadLocal() || { athletes:[], nextBib:1 };
 let sortKey="total", sortDir=1, applyingRemote=false;
-let boardFilter="active", currentView="race";
+let boardFilter="all", currentView="setup";
+let bc=null;  // canal entre ventanas del mismo navegador (TV/atleta sin Firebase)
 let waveSel=new Set();  // selección local de atletas para iniciar en tanda (no se sincroniza)
 
 function loadLocal(){ try{ return JSON.parse(localStorage.getItem("hyrox_"+sessionId)); }catch(e){ return null; } }
@@ -376,10 +398,50 @@ function listenRemote(){
   if(!db) return;
   onValue(ref(db, dbPath()), (snap)=>{
     const val=snap.val();
-    if(val && val.athletes){ applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false; setSync("on","Sincronizado · sesión: "+sessionId); }
+    if(val && val.athletes){
+      // Solo aplicar el estado remoto si es al menos tan reciente como el local.
+      // Evita que un estado vacío/antiguo en Firebase borre el avance local
+      // recién restaurado tras un refresh.
+      if((val._ts||0) >= (state._ts||0)){
+        applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false;
+        setSync("on","Sincronizado · sesión: "+sessionId);
+      } else {
+        // El local es más reciente: publícalo para no perderlo.
+        push();
+      }
+    }
   }, (err)=>{ console.error(err); setSync("off","Sin conexión — guardando local"); });
 }
-function push(){ saveLocal(); if(db && !applyingRemote){ set(ref(db, dbPath()), state).catch(e=>{ console.error(e); setSync("off","Reintentando…"); }); } }
+function broadcastLocal(){ if(bc){ try{ bc.postMessage({state}); }catch(e){} } }
+function setupChannel(){
+  if(bc){ try{ bc.close(); }catch(e){} bc=null; }
+  try{
+    bc=new BroadcastChannel("hyrox-"+sessionId);
+    bc.onmessage=(e)=>{
+      const v=e.data&&e.data.state;
+      // Aplica solo estados estrictamente más nuevos (otra pestaña editora del mismo equipo)
+      if(v && v.athletes && (v._ts||0) > (state._ts||0)){
+        applyingRemote=true; state=v; saveLocal(); renderAll(); applyingRemote=false;
+      }
+    };
+  }catch(e){ bc=null; }
+}
+function push(){
+  state._ts=Date.now();
+  saveLocal();
+  broadcastLocal();
+  if(db && !applyingRemote){
+    try{
+      const p=set(ref(db, dbPath()), state);
+      if(p && typeof p.catch==="function") p.catch(e=>{ console.error("sync:",e); setSync("off","Reintentando…"); });
+    }catch(e){
+      // Un fallo SÍNCRONO al escribir en Firebase no debe romper el flujo:
+      // el estado ya se guardó en local y la UI debe seguir actualizándose.
+      console.error("sync (sincrónico):",e);
+      setSync("off","Guardando local (sync no disponible)");
+    }
+  }
+}
 
 function go(v){
   currentView=v;
@@ -393,11 +455,31 @@ function renderAll(){ renderAthletes(); renderBoard(); renderResults(); if(curre
 function changeSession(){
   const v=document.getElementById("sessionId").value.trim().toLowerCase().replace(/[^a-z0-9\-]/g,"-");
   if(!v) return;
+  if(v===sessionId){ toast("Ya estás en la sesión «"+v+"»"); return; }
+
+  // Datos ya guardados de la sesión destino (si los hay)
+  let saved=null; try{ saved=JSON.parse(localStorage.getItem("hyrox_"+v)); }catch(e){}
+  const targetHasData = !!(saved && saved.athletes && saved.athletes.length);
+  const currentAthletes = (state.athletes && state.athletes.length) ? state.athletes.length : 0;
+
+  // Si la sesión destino está vacía pero hay atletas cargados, ofrecer llevarlos
+  // (así funciona el orden de la guía: registrar atletas y luego nombrar la sesión).
+  let carry=false;
+  if(!targetHasData && currentAthletes>0){
+    carry = confirm(`Tienes ${currentAthletes} atleta(s) cargado(s) y la sesión «${v}» está vacía.\n\nAceptar: llevarlos a «${v}».\nCancelar: empezar «${v}» vacía (los atletas quedan guardados en la sesión anterior).`);
+  }
+
   sessionId=v; localStorage.setItem("hyrox_session",sessionId);
-  state=loadLocal()||{athletes:[],nextBib:1};
+  if(targetHasData){ state=saved; }               // cargar la sesión destino existente
+  else if(carry){ /* conservar los atletas actuales para la nueva sesión */ }
+  else { state={athletes:[],nextBib:1}; }          // sesión nueva y limpia
+
+  setupChannel();
+  if(carry){ push(); } else { saveLocal(); }       // persistir bajo la nueva clave
   if(db){ listenRemote(); }
   setSync(CONFIGURED?"on":"local",(CONFIGURED?"Sincronizado":"Modo local")+" · sesión: "+sessionId);
-  renderAll(); toast("Sesión: "+sessionId);
+  renderAll();
+  toast(carry ? `${currentAthletes} atleta(s) → sesión «${sessionId}»` : "Sesión: "+sessionId);
 }
 
 function addAthlete(){
@@ -405,9 +487,9 @@ function addAthlete(){
   if(!name){ toast("Escribe un nombre"); return; }
   const cat=document.getElementById("newCat").value;
   state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
-  document.getElementById("newName").value=""; push(); renderAthletes(); document.getElementById("newName").focus();
+  document.getElementById("newName").value=""; renderAthletes(); push(); document.getElementById("newName").focus();
 }
-function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib); push(); renderAthletes(); }
+function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib); renderAthletes(); push(); }
 function renderAthletes(){
   const el=document.getElementById("athleteList"); if(!el) return;
   if(!state.athletes.length){ el.innerHTML='<p class="sub" style="text-align:center;padding:14px 0">Sin atletas todavía.</p>'; return; }
@@ -466,10 +548,12 @@ function cardHtml(a){
   else if(a.finished){ clockArea=`<div class="clockrow"><span class="clk">${clk(liveElapsed(a))}</span><span class="seglast">total</span></div>`; }
   else{ clockArea=`<div class="clockrow"><span class="clk" style="color:var(--hint)">0:00</span><span class="seglast">listo para iniciar</span></div>`; }
   let actions;
-  if(a.finished){ actions=`<div class="donebar">Carrera completa<small>Run ${fmtShort(runMs(a))} · Estac. ${fmtShort(stationMs(a))}</small></div>`; }
+  const canUndo = (a._undo && a._undo.length>0);
+  if(a.finished){ actions=`<div class="donebar">Carrera completa<small>Run ${fmtShort(runMs(a))} · Estac. ${fmtShort(stationMs(a))}</small><button class="undo-btn undo-fin" onclick="undoLast(${a.bib})" title="Reabrir / deshacer finalización">↩ Deshacer</button></div>`; }
   else if(st==="waiting"){ actions=`<div class="actions"><button class="start-btn" onclick="startRun(${a.bib})">▶ Iniciar</button></div>`; }
   else{ actions=`<div class="actions">
       <button class="mark-btn ${isStation?'station':''}" onclick="lap(${a.bib})">Marcar ${a.idx+1}/16</button>
+      ${(canUndo||a.idx>0)?`<button class="undo-btn" onclick="undoLast(${a.bib})" title="Deshacer última marca">↩</button>`:""}
       ${a.running?`<button class="sec-btn" onclick="pauseRun(${a.bib})" title="Pausar">⏸</button>`:`<button class="sec-btn" onclick="resumeRun(${a.bib})" title="Reanudar">▶</button>`}
       <button class="finish-btn" onclick="confirmFinish(${a.bib})" title="Finalizar">🏁</button>
     </div>`; }
@@ -482,7 +566,7 @@ function cardHtml(a){
   </div>`;
 }
 
-function startRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; push(); renderBoard(); }
+function startRun(bib){ const a=g(bib); pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; renderBoard(); push(); }
 function toggleWave(bib){ if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
 function clearWave(){ waveSel.clear(); renderBoard(); }
 function renderWaveBar(){
@@ -500,9 +584,9 @@ function startWave(){
   const grupo=state.athletes.filter(a=>waveSel.has(a.bib)&&athleteStatus(a)==="waiting");
   if(!grupo.length){ toast("Selecciona atletas por salir"); return; }
   const ts=Date.now();  // mismo timestamp para toda la tanda: salida idéntica
-  grupo.forEach(a=>{ a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
+  grupo.forEach(a=>{ pushUndo(a,'start'); a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
   const n=grupo.length;
-  waveSel.clear(); push(); renderBoard();
+  waveSel.clear(); renderBoard(); push();
   toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez");
 }
 function renderStats(){
@@ -515,23 +599,69 @@ function renderStats(){
     <span class="stat"><span class="dot wait"></span><strong>${wait}</strong> por salir</span>
     <span class="stat"><span class="dot fin"></span><strong>${fin}</strong> finalizados</span>`;
 }
-function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; push(); renderBoard(); }
-function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; push(); renderBoard(); }
+function resumeRun(bib){ const a=g(bib); a.startTs=Date.now(); a.running=true; renderBoard(); push(); }
+function pauseRun(bib){ const a=g(bib); a.elapsed=liveElapsed(a); a.running=false; a.startTs=null; renderBoard(); push(); }
 function lap(bib){
   const a=g(bib);
   if(!a.running){ if(a.elapsed>0){ resumeRun(bib); } else { startRun(bib); } return; }
+  pushUndo(a,'lap');
   const el=liveElapsed(a);
   a.steps[a.idx].ms = el - (a.idx>0?sumPrev(a,a.idx):0);
   a.idx++;
   if(a.idx>=a.steps.length){ a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; toast(`#${a.bib} ${a.name.split(' ')[0]} finalizó`); }
-  push(); renderBoard();
+  renderBoard(); push();
 }
 function confirmFinish(bib){
   const a=g(bib);
   if(!confirm(`¿Finalizar a #${a.bib} ${a.name} ahora? Quedan ${16-a.idx} segmentos sin marcar.`)) return;
+  pushUndo(a,'finish');
   const el=liveElapsed(a);
   if(a.running && a.idx<a.steps.length){ a.steps[a.idx].ms=el-sumPrev(a,a.idx); a.idx++; }
-  a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; push(); toast(`#${a.bib} finalizó`); renderBoard();
+  a.elapsed=el; a.running=false; a.startTs=null; a.finished=true; renderBoard(); push(); toast(`#${a.bib} finalizó`);
+}
+
+/* ---------- Deshacer última marca (corrige dobles clics, atleta equivocado o
+   finalización accidental). Se guarda una pila breve de estados previos por atleta;
+   al deshacer se conserva la hora de salida original, de modo que el cronómetro
+   sigue contando de forma continua y el segmento en curso se recalcula solo
+   (liveElapsed − splits previos) en la próxima marca. ---------- */
+function pushUndo(a, action){
+  if(!a._undo) a._undo=[];
+  a._undo.push({ action, idx:a.idx, elapsed:a.elapsed, running:a.running, startTs:a.startTs, finished:a.finished, stepsMs:a.steps.map(s=>s.ms) });
+  if(a._undo.length>20) a._undo.shift();
+}
+function undoLast(bib){
+  const a=g(bib);
+  const wasFinished=a.finished;
+  if(wasFinished && !confirm(`¿Reabrir a #${a.bib} ${a.name}? Volverá a estar en curso.`)) return;
+  const stack=a._undo;
+  if(stack && stack.length){
+    const s=stack.pop();
+    // Revertir siempre el avance y el split marcado por error
+    a.idx=s.idx;
+    for(let i=0;i<a.steps.length;i++){ a.steps[i].ms = (s.stepsMs && i<s.stepsMs.length) ? s.stepsMs[i] : null; }
+    a.finished=s.finished;
+    if(wasFinished || s.action==='start'){
+      // Reabrir una carrera finalizada o deshacer una salida:
+      // se restaura el reloj del snapshot. Si en ese momento la carrera estaba
+      // activa, conserva su startTs original y el cronómetro sigue contando
+      // desde la salida (sin perder el tiempo transcurrido).
+      a.running=s.running; a.elapsed=s.elapsed; a.startTs=s.startTs;
+    }
+    // Si sólo se deshace un split con la carrera aún activa/pausada, se deja el
+    // reloj tal cual: el tiempo total no retrocede ni se detiene.
+  } else {
+    // Reconstrucción para datos anteriores a esta función (sin historial).
+    if(a.finished){
+      a.finished=false;
+      if(a.idx>0){ a.idx--; a.steps[a.idx].ms=null; }
+      if(!a.running){ a.startTs=Date.now(); a.running=true; }  // reanuda desde el tiempo congelado
+    } else if(a.idx>0){
+      a.idx--; a.steps[a.idx].ms=null;
+    } else { toast("Nada que deshacer"); return; }
+  }
+  renderBoard(); push();
+  toast(`#${a.bib} · marca deshecha`);
 }
 
 setInterval(()=>{
@@ -601,25 +731,37 @@ function renderResults(){
 function showDetail(bib){
   const a=g(bib);
   const rows=a.steps.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.label)}</td><td class="splitcell">${s.ms!=null?fmtShort(s.ms):"—"}</td></tr>`).join("");
-  document.getElementById("detailBox").innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="font-size:15px">#${a.bib} ${esc(a.name)} · desglose</h3><button class="btn btn-sm" onclick="document.getElementById('detailBox').innerHTML=''">Cerrar</button></div><div class="table-scroll" style="margin-top:10px"><table><thead><tr><th>#</th><th>Segmento</th><th>Split</th></tr></thead><tbody>${rows}</tbody></table></div><p class="sub" style="margin-top:10px">Total: <strong>${fmt(liveElapsed(a))}</strong> · Run: ${fmtShort(runMs(a))} · Estaciones: ${fmtShort(stationMs(a))}</p></div>`;
+  document.getElementById("detailBox").innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="font-size:15px">#${a.bib} ${esc(a.name)} · desglose</h3><div class="row" style="gap:8px"><a class="btn btn-sm" href="${athleteUrl(a)}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">↗ Página individual</a><button class="btn btn-sm" onclick="document.getElementById('detailBox').innerHTML=''">Cerrar</button></div></div><div class="table-scroll" style="margin-top:10px"><table><thead><tr><th>#</th><th>Segmento</th><th>Split</th></tr></thead><tbody>${rows}</tbody></table></div><p class="sub" style="margin-top:10px">Total: <strong>${fmt(liveElapsed(a))}</strong> · Run: ${fmtShort(runMs(a))} · Estaciones: ${fmtShort(stationMs(a))}</p></div>`;
   document.getElementById("detailBox").scrollIntoView({behavior:"smooth"});
+}
+function athleteUrl(a){
+  const base=new URL("atleta.html", location.href).href;
+  return base+"?s="+encodeURIComponent(sessionId)+"&a="+encodeURIComponent(a.name);
 }
 function exportCSV(){
   const list=state.athletes.filter(hasTimes);
   if(!list.length){ toast("No hay datos para exportar"); return; }
-  const head=["Dorsal","Nombre","Categoria","Tiempo_total","Suma_run","Suma_estaciones","Avance","Split_actual","Estado"];
+  const head=["Dorsal","Nombre","Categoria","Tiempo_total","Suma_run","Suma_estaciones","Avance","Split_actual","Estado","Enlace_individual"];
   buildSteps().forEach((s,i)=>head.push(`S${i+1}_${s.label.replace(/[, ]+/g,"_")}`));
   const rows=[head.join(",")];
-  list.forEach(a=>{ const r=[a.bib,`"${a.name}"`,a.cat,fmt(liveElapsed(a)),fmtShort(runMs(a)),fmtShort(stationMs(a)),`${doneCount(a)}/16`,`"${currentSplitText(a)}"`,a.finished?"Final":"En_curso"]; a.steps.forEach(s=>r.push(s.ms!=null?fmtShort(s.ms):"")); rows.push(r.join(",")); });
+  list.forEach(a=>{ const r=[a.bib,`"${a.name}"`,a.cat,fmt(liveElapsed(a)),fmtShort(runMs(a)),fmtShort(stationMs(a)),`${doneCount(a)}/16`,`"${currentSplitText(a)}"`,a.finished?"Final":"En_curso",`"${athleteUrl(a)}"`]; a.steps.forEach(s=>r.push(s.ms!=null?fmtShort(s.ms):"")); rows.push(r.join(",")); });
   const blob=new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob), link=document.createElement("a");
   link.href=url; link.download="resultados_hyrox_"+sessionId+"_"+new Date().toISOString().slice(0,10)+".csv";
   document.body.appendChild(link); link.click(); link.remove(); toast("CSV exportado");
 }
+function resetSession(){
+  const n=(state.athletes&&state.athletes.length)||0;
+  if(!confirm(`¿Vaciar la sesión «${sessionId}»? Se borran ${n} atleta(s) y todos sus tiempos para empezar de cero. Esto no se puede deshacer.`)) return;
+  state={athletes:[],nextBib:1};
+  const box=document.getElementById("sessionId");
+  if(box){ box.value=""; box.focus(); }   // limpia la caja para escribir el código nuevo
+  renderAll(); push(); toast("Sesión vaciada · escribe un código nuevo");
+}
 function resetRace(){
   if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
-  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0; });
-  push(); renderResults(); renderBoard(); toast("Tiempos reiniciados");
+  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0;a._undo=[]; });
+  renderResults(); renderBoard(); push(); toast("Tiempos reiniciados");
 }
 
 /* ---------- PANTALLA TV (leaderboard integrado) ---------- */
@@ -740,11 +882,11 @@ function handleLinkRead(uid){
   const dup=state.athletes.find(x=>x.nfcId===uid && x.bib!==bib);
   if(dup){ toast(`Esa pulsera ya es de #${dup.bib} ${dup.name.split(" ")[0]}`); beep("err"); renderAthletes(); return; }
   a.nfcId=uid;
-  push(); renderAthletes();
+  renderAthletes(); push();
   beep("ok"); if(navigator.vibrate) navigator.vibrate(120);
   toast(`Pulsera vinculada a #${a.bib} ${a.name.split(" ")[0]}`);
 }
-function unlinkTag(bib){ const a=g(bib); if(!a) return; a.nfcId=null; push(); renderAthletes(); toast(`Pulsera desvinculada de #${bib}`); }
+function unlinkTag(bib){ const a=g(bib); if(!a) return; a.nfcId=null; renderAthletes(); push(); toast(`Pulsera desvinculada de #${bib}`); }
 
 /* --- kiosco --- */
 async function toggleKiosk(){
@@ -769,20 +911,20 @@ function handleKioskRead(uid){
   nfcLastRead[uid]=now;
   const a=state.athletes.find(x=>x.nfcId===uid);
   if(!a){ kioskFlash("err","Pulsera no registrada","Vincúlala en la pestaña Atletas"); beep("err"); return; }
-  const first=esc(a.name);
-  if(a.finished){ kioskFlash("warn",`#${a.bib} ${first}`,"Ya finalizó · 16/16"); beep("warn"); return; }
+  const nm=esc(a.name);
+  if(a.finished){ kioskFlash("warn",`#${a.bib} ${nm}`,"Ya finalizó · 16/16"); beep("warn"); return; }
   const st=athleteStatus(a);
-  if(st==="waiting"){ kioskFlash("warn",`#${a.bib} ${first}`,"Aún no ha iniciado · sal desde el Tablero"); beep("warn"); return; }
-  if(!a.running){ kioskFlash("warn",`#${a.bib} ${first}`,"Cronómetro en pausa · reanuda desde el Tablero"); beep("warn"); return; }
+  if(st==="waiting"){ kioskFlash("warn",`#${a.bib} ${nm}`,"Aún no ha iniciado · sal desde el Tablero"); beep("warn"); return; }
+  if(!a.running){ kioskFlash("warn",`#${a.bib} ${nm}`,"Cronómetro en pausa · reanuda desde el Tablero"); beep("warn"); return; }
   lap(a.bib);   // marca el split actual y avanza (misma lógica que el botón Marcar)
   if(navigator.vibrate) navigator.vibrate([80,60,80]);
   if(a.finished){
-    kioskFlash("ok",`#${a.bib} ${first}`,`¡FINALIZÓ! · ${clk(liveElapsed(a))}`);
+    kioskFlash("ok",`#${a.bib} ${nm}`,`¡FINALIZÓ! · ${clk(liveElapsed(a))}`);
     beep("finish");
     addKioskRecent(a,"Final");
   } else {
     const next=a.steps[a.idx];
-    kioskFlash("ok",`#${a.bib} ${first}`,`${a.idx}/16 · sigue: ${next?next.label:""}`);
+    kioskFlash("ok",`#${a.bib} ${nm}`,`${a.idx}/16 · sigue: ${next?next.label:""}`);
     beep("ok");
     addKioskRecent(a,a.idx+"/16");
   }
@@ -882,6 +1024,68 @@ function beep(kind){
 }
 
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- Carga masiva de atletas (Excel/CSV) ---------- */
+let _xlsxP=null;
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(_xlsxP) return _xlsxP;
+  _xlsxP=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload=()=>window.XLSX?res(window.XLSX):rej(new Error("XLSX no disponible"));
+    s.onerror=()=>{ _xlsxP=null; rej(new Error("No se pudo cargar la librería de Excel")); };
+    document.head.appendChild(s);
+  });
+  return _xlsxP;
+}
+function normCat(v){
+  const t=String(v==null?"":v).trim().toLowerCase();
+  if(/pro/.test(t)) return "Pro";
+  if(/double|doble/.test(t)) return "Doubles";
+  if(/relay|relevo/.test(t)) return "Relay";
+  return "Open";
+}
+function triggerImport(){ document.getElementById("importFile").click(); }
+async function importAthletes(ev){
+  const file=ev.target.files&&ev.target.files[0];
+  ev.target.value="";   // permite re-seleccionar el mismo archivo
+  if(!file) return;
+  toast("Leyendo archivo…");
+  let XLSX;
+  try{ XLSX=await loadXLSX(); }
+  catch(e){ console.error(e); toast("No se pudo cargar la librería de Excel (¿sin internet?)"); return; }
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    if(!ws){ toast("El archivo no tiene hojas"); return; }
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:""});
+    if(!rows.length){ toast("El archivo está vacío"); return; }
+    let nameCol=0, catCol=1, start=0;
+    const first=(rows[0]||[]).map(c=>String(c).trim().toLowerCase());
+    const hasHeader=first.some(c=>/nombre|name|atleta/.test(c)) || first.some(c=>/categor|division|^cat$/.test(c));
+    if(hasHeader){
+      start=1;
+      const ni=first.findIndex(c=>/nombre|name|atleta/.test(c));
+      const ci=first.findIndex(c=>/categor|division|^cat$/.test(c));
+      if(ni>=0) nameCol=ni;
+      if(ci>=0) catCol=ci;
+    }
+    let added=0;
+    for(let i=start;i<rows.length;i++){
+      const r=rows[i]||[];
+      const name=String(r[nameCol]==null?"":r[nameCol]).trim();
+      if(!name) continue;
+      const cat=normCat(r[catCol]);
+      state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
+      added++;
+    }
+    if(!added){ toast("No se encontraron nombres en el archivo"); return; }
+    renderAthletes(); push();
+    toast(added+" atleta"+(added>1?"s":"")+" importado"+(added>1?"s":""));
+  }catch(e){ console.error(e); toast("No se pudo leer el archivo"); }
+}
 let toastT;
 function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),1800); }
 function renderConfigBanner(){
@@ -890,10 +1094,11 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,linkTag,cancelLinkTag,unlinkTag,toggleKiosk,enterKioskFullscreen,exitKioskFullscreen});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,resetSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,undoLast,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes,linkTag,cancelLinkTag,unlinkTag,toggleKiosk,enterKioskFullscreen,exitKioskFullscreen});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
+setupChannel();
 renderAll();
 initFirebase();
 </script>
