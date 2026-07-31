@@ -202,6 +202,7 @@
   .kio-chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--muted);font-family:var(--mono)}
   .kio-chip strong{color:var(--text)}
   .nfc-tag-ok{font-size:11px;color:var(--accent);font-family:var(--mono);background:rgba(29,158,117,.12);padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .nfc-tag-no{font-size:11px;color:var(--hint);font-family:var(--mono);background:var(--surface2);border:1px dashed var(--line);padding:2px 8px;border-radius:999px;white-space:nowrap}
   @media(max-width:520px){ .grid{grid-template-columns:1fr} }
 </style>
 </head>
@@ -493,12 +494,16 @@ function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib
 function renderAthletes(){
   const el=document.getElementById("athleteList"); if(!el) return;
   if(!state.athletes.length){ el.innerHTML='<p class="sub" style="text-align:center;padding:14px 0">Sin atletas todavía.</p>'; return; }
-  el.innerHTML=state.athletes.map(a=>{
+  const linked=state.athletes.filter(a=>a.nfcId).length;
+  const summary=`<p class="sub" style="margin:0 0 4px">Pulseras NFC: <strong style="color:${linked===state.athletes.length?'var(--accent)':'var(--text)'}">${linked}/${state.athletes.length}</strong> vinculadas${NFC_OK?"":" · para vincular abre esta página en el celular Android del kiosco"}</p>`;
+  el.innerHTML=summary+state.athletes.map(a=>{
     let nfcUi;
-    if(!NFC_OK){ nfcUi=""; }
-    else if(a.nfcId){ nfcUi=`<span class="nfc-tag-ok" title="${esc(a.nfcId)}">⬡ NFC ✓</span><button class="btn btn-sm" onclick="unlinkTag(${a.bib})" title="Quitar pulsera">✕</button>`; }
-    else if(nfcLinkBib===a.bib){ nfcUi=`<span class="nfc-tag-ok" style="color:var(--amber);background:rgba(239,159,39,.12)">Acerca la pulsera…</span><button class="btn btn-sm" onclick="cancelLinkTag()">Cancelar</button>`; }
-    else { nfcUi=`<button class="btn btn-sm" onclick="linkTag(${a.bib})">⬡ Vincular</button>`; }
+    if(a.nfcId){
+      nfcUi=`<span class="nfc-tag-ok" title="${esc(a.nfcId)}">⬡ NFC ✓</span>`+(NFC_OK?`<button class="btn btn-sm" onclick="unlinkTag(${a.bib})" title="Quitar pulsera">✕</button>`:"");
+    }
+    else if(NFC_OK && nfcLinkBib===a.bib){ nfcUi=`<span class="nfc-tag-ok" style="color:var(--amber);background:rgba(239,159,39,.12)">Acerca la pulsera…</span><button class="btn btn-sm" onclick="cancelLinkTag()">Cancelar</button>`; }
+    else if(NFC_OK){ nfcUi=`<span class="nfc-tag-no">⬡ Sin pulsera</span><button class="btn btn-sm" onclick="linkTag(${a.bib})">Vincular</button>`; }
+    else { nfcUi=`<span class="nfc-tag-no" title="Vincula desde el celular Android del kiosco">⬡ Sin pulsera</span>`; }
     return `<div class="a-item"><span class="a-bib">#${a.bib}</span><span class="a-name">${esc(a.name)}</span><span class="a-cat">${a.cat}</span>${nfcUi}<button class="btn btn-sm btn-danger" onclick="removeAthlete(${a.bib})">Quitar</button></div>`;
   }).join("");
 }
