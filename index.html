@@ -433,7 +433,11 @@ function push(){
   broadcastLocal();
   if(db && !applyingRemote){
     try{
-      const p=set(ref(db, dbPath()), state);
+      // Sanitizar antes de enviar: Firebase rechaza `undefined` con un throw
+      // síncrono que rompía la sincronización hasta refrescar. El paso por JSON
+      // convierte undefined→null en arreglos y elimina propiedades undefined.
+      const clean=JSON.parse(JSON.stringify(state));
+      const p=set(ref(db, dbPath()), clean);
       if(p && typeof p.catch==="function") p.catch(e=>{ console.error("sync:",e); setSync("off","Reintentando…"); });
     }catch(e){
       // Un fallo SÍNCRONO al escribir en Firebase no debe romper el flujo:
@@ -632,7 +636,11 @@ function confirmFinish(bib){
    (liveElapsed − splits previos) en la próxima marca. ---------- */
 function pushUndo(a, action){
   if(!a._undo) a._undo=[];
-  a._undo.push({ action, idx:a.idx, elapsed:a.elapsed, running:a.running, startTs:a.startTs, finished:a.finished, stepsMs:a.steps.map(s=>s.ms) });
+  // stepsMs como objeto {índice: ms} solo con splits marcados: los arreglos con
+  // null/undefined se corrompen al ir y volver de Firebase; un objeto no.
+  const sm={};
+  a.steps.forEach((s,i)=>{ if(s.ms!=null) sm[i]=s.ms; });
+  a._undo.push({ action, idx:a.idx, elapsed:a.elapsed, running:a.running, startTs:a.startTs, finished:a.finished, stepsMs:sm });
   if(a._undo.length>20) a._undo.shift();
 }
 function undoLast(bib){
@@ -644,7 +652,8 @@ function undoLast(bib){
     const s=stack.pop();
     // Revertir siempre el avance y el split marcado por error
     a.idx=s.idx;
-    for(let i=0;i<a.steps.length;i++){ a.steps[i].ms = (s.stepsMs && i<s.stepsMs.length) ? s.stepsMs[i] : null; }
+    // Compatible con el formato nuevo (objeto {i:ms}) y el viejo (arreglo):
+    for(let i=0;i<a.steps.length;i++){ a.steps[i].ms = (s.stepsMs && s.stepsMs[i]!=null) ? s.stepsMs[i] : null; }
     a.finished=s.finished;
     if(wasFinished || s.action==='start'){
       // Reabrir una carrera finalizada o deshacer una salida:
