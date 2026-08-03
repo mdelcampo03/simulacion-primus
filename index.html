@@ -324,6 +324,7 @@
     <div class="tv-toolbar">
       <button class="btn btn-sm" onclick="enterFullscreen()">⛶ Pantalla completa</button>
       <button class="btn btn-sm" onclick="openTvWindow()">↗ Abrir en ventana nueva</button>
+      <button class="btn btn-sm" onclick="copyTvLink()">⧉ Copiar enlace</button>
       <span class="muted-note" style="margin:0">Conecta este dispositivo a la TV (HDMI/Chromecast) y entra en pantalla completa.</span>
     </div>
     <div class="tvscreen" id="tvScreen">
@@ -833,6 +834,30 @@ function openTvWindow(){
   window.open(url,"hyrox_tv","width=1280,height=800");
 }
 
+function tvLinkUrl(){
+  return new URL("leaderboard.html", location.href).href + "?s=" + encodeURIComponent(sessionId);
+}
+function copyTvLink(){
+  const url = tvLinkUrl();
+  const done = () => toast("Enlace copiado: " + url);
+  const fail = () => {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand("copy"); done(); }
+    catch(e){ toast("No se pudo copiar. Enlace: " + url); }
+    document.body.removeChild(ta);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done).catch(fail);
+  } else {
+    fail();
+  }
+}
+
 /* ---------- NFC (Web NFC · solo Chrome/Android) ---------- */
 const NFC_OK = ("NDEFReader" in window);
 const NFC_COOLDOWN_MS = 5000;     // ignora relecturas del mismo tag durante 5 s
@@ -1108,7 +1133,7 @@ function renderConfigBanner(){
   b.innerHTML=`<div class="banner"><strong>⚠ Firebase aún no configurado.</strong> La app funciona en modo local (un solo dispositivo). Para sincronizar entre dispositivos, pega tus credenciales en el bloque <code>firebaseConfig</code>.</div>`;
 }
 
-Object.assign(window,{go,addAthlete,removeAthlete,changeSession,resetSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,undoLast,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,triggerImport,importAthletes,linkTag,cancelLinkTag,unlinkTag,toggleKiosk,enterKioskFullscreen,exitKioskFullscreen});
+Object.assign(window,{go,addAthlete,removeAthlete,changeSession,resetSession,setFilter,startRun,toggleWave,clearWave,startWave,resumeRun,pauseRun,lap,confirmFinish,undoLast,sortRes,showDetail,exportCSV,resetRace,enterFullscreen,exitFullscreen,openTvWindow,copyTvLink,triggerImport,importAthletes,linkTag,cancelLinkTag,unlinkTag,toggleKiosk,enterKioskFullscreen,exitKioskFullscreen});
 
 document.getElementById("sessionId").value=sessionId;
 renderConfigBanner();
