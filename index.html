@@ -455,7 +455,7 @@ function go(v){
   if(v==="race") renderBoard();
   if(v==="results") renderResults();
   if(v==="tv") renderTv();
-  if(v==="nfc") renderKiosk();
+  if(v==="nfc") enterNfcView();
 }
 function renderAll(){ renderAthletes(); renderBoard(); renderResults(); if(currentView==="tv") renderTv(); }
 function changeSession(){
@@ -495,7 +495,19 @@ function addAthlete(){
   state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
   document.getElementById("newName").value=""; renderAthletes(); push(); document.getElementById("newName").focus();
 }
-function removeAthlete(bib){ state.athletes=state.athletes.filter(a=>a.bib!==bib); renderAthletes(); push(); }
+function removeAthlete(bib){
+  const a=g(bib); if(!a) return;
+  // Restricción: no se puede quitar a un atleta que ya inició la carrera
+  // (en pista o finalizado). Solo se permite eliminar a los que están «Por salir».
+  if(athleteStatus(a)!=="waiting"){
+    toast(`No puedes quitar a #${a.bib}: ya inició la carrera`);
+    return;
+  }
+  // Confirmación antes de borrar.
+  if(!confirm(`¿Quitar a #${a.bib} ${a.name} de la lista?\n\nEsta acción no se puede deshacer.`)) return;
+  state.athletes=state.athletes.filter(x=>x.bib!==bib); renderAthletes(); push();
+  toast(`#${a.bib} ${a.name.split(" ")[0]} eliminado`);
+}
 function renderAthletes(){
   const el=document.getElementById("athleteList"); if(!el) return;
   if(!state.athletes.length){ el.innerHTML='<p class="sub" style="text-align:center;padding:14px 0">Sin atletas todavía.</p>'; return; }
@@ -509,7 +521,13 @@ function renderAthletes(){
     else if(NFC_OK && nfcLinkBib===a.bib){ nfcUi=`<span class="nfc-tag-ok" style="color:var(--amber);background:rgba(239,159,39,.12)">Acerca la pulsera…</span><button class="btn btn-sm" onclick="cancelLinkTag()">Cancelar</button>`; }
     else if(NFC_OK){ nfcUi=`<span class="nfc-tag-no">⬡ Sin pulsera</span><button class="btn btn-sm" onclick="linkTag(${a.bib})">Vincular</button>`; }
     else { nfcUi=`<span class="nfc-tag-no" title="Vincula desde el celular Android del kiosco">⬡ Sin pulsera</span>`; }
-    return `<div class="a-item"><span class="a-bib">#${a.bib}</span><span class="a-name">${esc(a.name)}</span><span class="a-cat">${a.cat}</span>${nfcUi}<button class="btn btn-sm btn-danger" onclick="removeAthlete(${a.bib})">Quitar</button></div>`;
+    // Solo se puede quitar a los que aún no inician; si ya está en pista o finalizó,
+    // el botón se muestra deshabilitado para evitar borrados por error.
+    const canRemove = athleteStatus(a)==="waiting";
+    const rmUi = canRemove
+      ? `<button class="btn btn-sm btn-danger" onclick="removeAthlete(${a.bib})">Quitar</button>`
+      : `<button class="btn btn-sm" disabled title="No se puede quitar: ya inició la carrera" style="opacity:.4;cursor:not-allowed">Quitar</button>`;
+    return `<div class="a-item"><span class="a-bib">#${a.bib}</span><span class="a-name">${esc(a.name)}</span><span class="a-cat">${a.cat}</span>${nfcUi}${rmUi}</div>`;
   }).join("");
 }
 
@@ -864,28 +882,34 @@ const NFC_COOLDOWN_MS = 5000;     // ignora relecturas del mismo tag durante 5 s
 const KIOSK_FLASH_MS  = 4000;     // duración del mensaje de confirmación en pantalla
 
 let nfcReader=null, nfcAbort=null;
-let nfcMode="idle";               // "idle" | "link" | "kiosk"
+let nfcScanning=false;            // ¿hay un NDEFReader.scan() activo ahora mismo?
 let nfcLinkBib=null;              // dorsal en proceso de vinculación
 let kioskActive=false;
 let nfcLastRead={};               // uid -> timestamp última lectura (debounce)
 let kioskRecent=[];               // últimos fichajes mostrados abajo
 let kioskFlashT=null, wakeLock=null, audioCtx=null;
 
-/* --- escaneo base --- */
-async function nfcStartScan(mode){
+/* --- escaneo base ---
+   Lector persistente: una vez iniciado, el escáner NFC se queda ACTIVO y no se
+   apaga entre vinculaciones ni fichajes. Mientras hay un scan() vivo, Chrome se
+   queda con el NFC y Android ya no muestra su pantalla del sistema
+   («Nueva etiqueta recolectada / Etiqueta vacía»). El destino de cada lectura se
+   decide por el estado actual (vinculación en curso vs. kiosco), no por reiniciar
+   el lector. */
+async function nfcEnsureScan(){
   if(!NFC_OK) return false;
-  await nfcStopScan();
+  if(nfcScanning && nfcReader) return true;   // ya hay lector activo: no reiniciar
   try{
     nfcAbort=new AbortController();
     nfcReader=new NDEFReader();
     nfcReader.onreading=onNfcRead;
-    nfcReader.onreadingerror=()=>{ if(nfcMode==="kiosk"){ kioskFlash("err","Lectura fallida","Acerca la pulsera de nuevo"); beep("err"); } };
+    nfcReader.onreadingerror=()=>{ if(kioskActive){ kioskFlash("err","Lectura fallida","Acerca la pulsera de nuevo"); beep("err"); } };
     await nfcReader.scan({signal:nfcAbort.signal});
-    nfcMode=mode;
+    nfcScanning=true;
     return true;
   }catch(e){
     console.error("NFC scan:",e);
-    nfcMode="idle";
+    nfcScanning=false; nfcReader=null; nfcAbort=null;
     if(e && e.name==="NotAllowedError") toast("Permiso NFC denegado. Actívalo en el navegador.");
     else toast("No se pudo iniciar el lector NFC");
     return false;
@@ -893,29 +917,40 @@ async function nfcStartScan(mode){
 }
 async function nfcStopScan(){
   if(nfcAbort){ try{ nfcAbort.abort(); }catch(e){} }
-  nfcAbort=null; nfcReader=null; nfcMode="idle";
+  nfcAbort=null; nfcReader=null; nfcScanning=false;
 }
 function onNfcRead(ev){
   const uid=ev.serialNumber;
-  if(!uid){ if(nfcMode==="kiosk"){ kioskFlash("err","Tag sin identificador","Usa otra pulsera"); beep("err"); } return; }
-  if(nfcMode==="link") handleLinkRead(uid);
-  else if(nfcMode==="kiosk") handleKioskRead(uid);
+  // 1) Vinculación en curso (se pulsó «Vincular» para un dorsal): tiene prioridad.
+  if(nfcLinkBib!=null){
+    if(!uid){ toast("La pulsera no tiene identificador legible"); beep("err"); return; }
+    handleLinkRead(uid);
+    return;
+  }
+  // 2) Kiosco encendido: fichaje normal.
+  if(kioskActive){
+    if(!uid){ kioskFlash("err","Tag sin identificador","Usa otra pulsera"); beep("err"); return; }
+    handleKioskRead(uid);
+    return;
+  }
+  // 3) Fuera de vinculación y de kiosco: el lector igual consume el tap, así que
+  //    Android no muestra su pantalla del sistema. No hacemos nada más.
 }
 
 /* --- vinculación de pulseras (pestaña Atletas) --- */
 async function linkTag(bib){
   if(!NFC_OK){ toast("Este dispositivo no soporta NFC web"); return; }
   ensureAudio();
+  const ok=await nfcEnsureScan();     // enciende el lector si no lo estaba (y lo deja encendido)
+  if(!ok) return;
   nfcLinkBib=bib;
   renderAthletes();
-  const ok=await nfcStartScan("link");
-  if(!ok){ nfcLinkBib=null; renderAthletes(); }
 }
-function cancelLinkTag(){ nfcLinkBib=null; nfcStopScan(); renderAthletes(); }
+// Cancelar solo sale del modo vinculación; el lector se queda activo.
+function cancelLinkTag(){ nfcLinkBib=null; renderAthletes(); }
 function handleLinkRead(uid){
   const bib=nfcLinkBib;
-  nfcLinkBib=null;
-  nfcStopScan();
+  nfcLinkBib=null;                    // salimos del modo vinculación; NO apagamos el lector
   const a=g(bib);
   if(!a){ renderAthletes(); return; }
   const dup=state.athletes.find(x=>x.nfcId===uid && x.bib!==bib);
@@ -932,7 +967,7 @@ async function toggleKiosk(){
   if(kioskActive){ await stopKiosk(); return; }
   if(!NFC_OK){ toast("NFC no disponible: usa Chrome en Android"); return; }
   ensureAudio();
-  const ok=await nfcStartScan("kiosk");
+  const ok=await nfcEnsureScan();
   if(!ok) return;
   kioskActive=true;
   await acquireWakeLock();
@@ -940,8 +975,22 @@ async function toggleKiosk(){
 }
 async function stopKiosk(){
   kioskActive=false;
-  await nfcStopScan();
+  // El lector NFC permanece activo (para poder vincular pulseras sin que Android
+  // muestre su pantalla). Solo soltamos el wake lock y refrescamos la pantalla.
   releaseWakeLock();
+  renderKiosk();
+}
+/* Al entrar a la pestaña NFC: el lector arranca solo y el kiosco queda ACTIVO por
+   defecto. Se dispara desde el clic en la pestaña (gesto de usuario), así que el
+   permiso NFC puede pedirse la primera vez sin problema. */
+async function enterNfcView(){
+  renderKiosk();
+  if(!NFC_OK || kioskActive) return;
+  ensureAudio();
+  const ok=await nfcEnsureScan();
+  if(!ok) return;
+  kioskActive=true;
+  await acquireWakeLock();
   renderKiosk();
 }
 function handleKioskRead(uid){
@@ -1031,7 +1080,9 @@ function releaseWakeLock(){ if(wakeLock){ try{ wakeLock.release(); }catch(e){} w
 document.addEventListener("visibilitychange",async ()=>{
   if(document.visibilityState==="visible" && kioskActive){
     await acquireWakeLock();
-    await nfcStartScan("kiosk");
+    // Al volver del segundo plano, el lector pudo haberse suspendido: lo reiniciamos.
+    await nfcStopScan();
+    await nfcEnsureScan();
     renderKiosk();
   }
 });
