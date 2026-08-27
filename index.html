@@ -372,7 +372,7 @@ let state = loadLocal() || { athletes:[], nextBib:1 };
 let sortKey="total", sortDir=1, applyingRemote=false;
 let boardFilter="all", currentView="setup";
 let bc=null;  // canal entre ventanas del mismo navegador (TV/atleta sin Firebase)
-let waveSel=new Set();  // selección local de atletas para iniciar en tanda (no se sincroniza)
+// El estado «armado» (listo para salir con pulsera) vive en a.armed y SÍ se sincroniza entre dispositivos.
 
 function loadLocal(){ try{ return JSON.parse(localStorage.getItem("hyrox_"+sessionId)); }catch(e){ return null; } }
 function saveLocal(){ try{ localStorage.setItem("hyrox_"+sessionId, JSON.stringify(state)); }catch(e){} }
@@ -492,7 +492,7 @@ function addAthlete(){
   const name=document.getElementById("newName").value.trim();
   if(!name){ toast("Escribe un nombre"); return; }
   const cat=document.getElementById("newCat").value;
-  state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
+  state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, armed:false, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
   document.getElementById("newName").value=""; renderAthletes(); push(); document.getElementById("newName").focus();
 }
 function removeAthlete(bib){
@@ -588,7 +588,7 @@ function cardHtml(a){
       <button class="finish-btn" onclick="confirmFinish(${a.bib})" title="Finalizar">🏁</button>
     </div>`; }
   const isWaiting=st==="waiting";
-  const sel=isWaiting&&waveSel.has(a.bib);
+  const sel=isWaiting&&!!a.armed;
   const selChk=(isWaiting&&a.nfcId)?`<button class="wave-check ${sel?'on':''}" onclick="toggleWave(${a.bib})" title="Habilitar salida (pulsera o tanda)">${sel?'✓':''}</button>`:"";
   return `<div class="acard ${st==='active'?'running':''} ${typeCls} ${sel?'sel':''}">
     <div class="top">${selChk}<span class="bib">#${a.bib}</span><span class="nm">${esc(a.name)}</span><span class="cat">${a.cat}</span></div>
@@ -596,14 +596,13 @@ function cardHtml(a){
   </div>`;
 }
 
-function startRun(bib){ const a=g(bib); if(!a) return; if(!a.nfcId){ toast(`#${a.bib} ${a.name.split(" ")[0]} no tiene pulsera vinculada`); return; } pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; renderBoard(); push(); }
-function toggleWave(bib){ const a=g(bib); if(a && !a.nfcId){ toast("Vincula la pulsera antes de habilitar la salida"); return; } if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
-function clearWave(){ waveSel.clear(); renderBoard(); }
+function startRun(bib){ const a=g(bib); if(!a) return; if(!a.nfcId){ toast(`#${a.bib} ${a.name.split(" ")[0]} no tiene pulsera vinculada`); return; } pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; a.armed=false; renderBoard(); push(); }
+function toggleWave(bib){ const a=g(bib); if(!a) return; if(!a.nfcId){ toast("Vincula la pulsera antes de habilitar la salida"); return; } a.armed=!a.armed; renderBoard(); push(); }
+function clearWave(){ state.athletes.forEach(a=>{ a.armed=false; }); renderBoard(); push(); }
 function renderWaveBar(){
   const bar=document.getElementById("waveBar"); if(!bar) return;
-  // descartar selecciones que ya no estén «Por salir» (iniciaron solas, se quitaron, etc.)
-  [...waveSel].forEach(b=>{ const a=g(b); if(!a || athleteStatus(a)!=="waiting") waveSel.delete(b); });
-  const n=waveSel.size;
+  // atletas armados que siguen «Por salir»
+  const n=state.athletes.filter(a=>a.armed && athleteStatus(a)==="waiting").length;
   if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
   bar.style.display="flex";
   bar.innerHTML=`<span class="wave-info"><strong>${n}</strong> armado${n>1?'s':''} · pueden salir con su pulsera o con «Iniciar tanda»</span>
@@ -611,14 +610,14 @@ function renderWaveBar(){
     <button class="wave-start" onclick="startWave()">▶ Iniciar tanda (${n})</button>`;
 }
 function startWave(){
-  const sel=state.athletes.filter(a=>waveSel.has(a.bib)&&athleteStatus(a)==="waiting");
+  const sel=state.athletes.filter(a=>a.armed&&athleteStatus(a)==="waiting");
   const grupo=sel.filter(a=>a.nfcId);                 // solo con pulsera vinculada
   const sinPulsera=sel.length-grupo.length;
   if(!grupo.length){ toast(sinPulsera?"Sin pulsera vinculada: no pueden iniciar":"Selecciona atletas por salir"); return; }
   const ts=Date.now();  // mismo timestamp para toda la tanda: salida idéntica
-  grupo.forEach(a=>{ pushUndo(a,'start'); a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
+  grupo.forEach(a=>{ pushUndo(a,'start'); a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; a.armed=false; });
   const n=grupo.length;
-  waveSel.clear(); renderBoard(); push();
+  renderBoard(); push();
   toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez"+(sinPulsera?` · ${sinPulsera} sin pulsera omitido${sinPulsera>1?"s":""}`:""));
 }
 function renderStats(){
@@ -797,7 +796,7 @@ function resetSession(){
 }
 function resetRace(){
   if(!confirm("¿Borrar todos los tiempos de esta sesión? Los atletas se conservan.")) return;
-  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0;a._undo=[]; });
+  state.athletes.forEach(a=>{ a.steps=buildSteps().map(s=>({...s,ms:null})); a.startTs=null;a.running=false;a.elapsed=0;a.finished=false;a.idx=0;a.armed=false;a._undo=[]; });
   renderResults(); renderBoard(); push(); toast("Tiempos reiniciados");
 }
 
@@ -1007,9 +1006,8 @@ function handleKioskRead(uid){
   if(a.finished){ kioskFlash("warn",`#${a.bib} ${nm}`,"Ya finalizó · 16/16"); beep("warn"); return; }
   const st=athleteStatus(a);
   if(st==="waiting"){
-    if(waveSel.has(a.bib)){            // armado con ✓ en el Tablero: la pulsera puede iniciar
-      waveSel.delete(a.bib);          // consumir el armado
-      startRun(a.bib);                // arranca el cronómetro (push + renderBoard incluidos)
+    if(a.armed){                      // armado con ✓ en el Tablero (estado sincronizado entre dispositivos)
+      startRun(a.bib);                // arranca el cronómetro (limpia armed, push + renderBoard incluidos)
       if(navigator.vibrate) navigator.vibrate([80,60,80]);
       kioskFlash("ok",`#${a.bib} ${nm}`,"¡SALIÓ! · cronómetro en marcha");
       beep("ok");
@@ -1185,7 +1183,7 @@ async function importAthletes(ev){
       const name=String(r[nameCol]==null?"":r[nameCol]).trim();
       if(!name) continue;
       const cat=normCat(r[catCol]);
-      state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
+      state.athletes.push({ bib:state.nextBib++, name, cat, nfcId:null, armed:false, steps:buildSteps().map(s=>({...s,ms:null})), startTs:null, running:false, elapsed:0, finished:false, idx:0 });
       added++;
     }
     if(!added){ toast("No se encontraron nombres en el archivo"); return; }
