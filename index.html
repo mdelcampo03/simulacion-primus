@@ -271,7 +271,7 @@
       </div>
     </div>
     <div class="board-stats" id="boardStats"></div>
-    <p class="muted-note">Marca el split del atleta que va cruzando. Cada tarjeta avanza sola al siguiente segmento. Para salir en grupo, marca la casilla de los atletas «Por salir» y usa «Iniciar tanda».</p>
+    <p class="muted-note">Marca el split del atleta que va cruzando. Cada tarjeta avanza sola al siguiente segmento. Marca con la casilla ✓ a los atletas «Por salir»: quedan habilitados para arrancar con su pulsera, o inícialos en grupo con «Iniciar tanda».</p>
     <div class="wavebar" id="waveBar"></div>
     <div id="boardBody"></div>
   </section>
@@ -311,7 +311,7 @@
       <button class="btn btn-sm" onclick="enterKioskFullscreen()">⛶ Pantalla completa</button>
       <span class="nfc-status"><span class="dot" id="nfcDot"></span><span id="nfcStatusTxt">Lector inactivo</span></span>
     </div>
-    <p class="muted-note" style="margin-top:4px">Deja este dispositivo fijo y conectado a corriente. El atleta acerca su pulsera; la pantalla y el sonido confirman el fichaje. Los atletas «Por salir» se inician desde el Tablero, no con la pulsera.</p>
+    <p class="muted-note" style="margin-top:4px">Deja este dispositivo fijo y conectado a corriente. El atleta acerca su pulsera; la pantalla y el sonido confirman el fichaje. Los atletas «Por salir» arrancan al acercar la pulsera solo si están marcados con ✓ en el Tablero.</p>
     <div class="kioscreen" id="kioScreen">
       <button class="fs-exit" onclick="exitKioskFullscreen()">✕ Salir</button>
       <span class="kio-session" id="kioSession"></span>
@@ -587,7 +587,7 @@ function cardHtml(a){
     </div>`; }
   const isWaiting=st==="waiting";
   const sel=isWaiting&&waveSel.has(a.bib);
-  const selChk=isWaiting?`<button class="wave-check ${sel?'on':''}" onclick="toggleWave(${a.bib})" title="Agregar a la tanda">${sel?'✓':''}</button>`:"";
+  const selChk=isWaiting?`<button class="wave-check ${sel?'on':''}" onclick="toggleWave(${a.bib})" title="Habilitar salida (pulsera o tanda)">${sel?'✓':''}</button>`:"";
   return `<div class="acard ${st==='active'?'running':''} ${typeCls} ${sel?'sel':''}">
     <div class="top">${selChk}<span class="bib">#${a.bib}</span><span class="nm">${esc(a.name)}</span><span class="cat">${a.cat}</span></div>
     ${segArea}${clockArea}${actions}
@@ -604,7 +604,7 @@ function renderWaveBar(){
   const n=waveSel.size;
   if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
   bar.style.display="flex";
-  bar.innerHTML=`<span class="wave-info"><strong>${n}</strong> seleccionado${n>1?'s':''} para la tanda</span>
+  bar.innerHTML=`<span class="wave-info"><strong>${n}</strong> armado${n>1?'s':''} · pueden salir con su pulsera o con «Iniciar tanda»</span>
     <button class="btn btn-sm" onclick="clearWave()">Limpiar</button>
     <button class="wave-start" onclick="startWave()">▶ Iniciar tanda (${n})</button>`;
 }
@@ -1002,7 +1002,20 @@ function handleKioskRead(uid){
   const nm=esc(a.name);
   if(a.finished){ kioskFlash("warn",`#${a.bib} ${nm}`,"Ya finalizó · 16/16"); beep("warn"); return; }
   const st=athleteStatus(a);
-  if(st==="waiting"){ kioskFlash("warn",`#${a.bib} ${nm}`,"Aún no ha iniciado · sal desde el Tablero"); beep("warn"); return; }
+  if(st==="waiting"){
+    if(waveSel.has(a.bib)){            // armado con ✓ en el Tablero: la pulsera puede iniciar
+      waveSel.delete(a.bib);          // consumir el armado
+      startRun(a.bib);                // arranca el cronómetro (push + renderBoard incluidos)
+      if(navigator.vibrate) navigator.vibrate([80,60,80]);
+      kioskFlash("ok",`#${a.bib} ${nm}`,"¡SALIÓ! · cronómetro en marcha");
+      beep("ok");
+      addKioskRecent(a,"Salida");
+    } else {                          // no armado: no se permite iniciar por accidente
+      kioskFlash("warn",`#${a.bib} ${nm}`,"No habilitado · márcalo con ✓ en el Tablero");
+      beep("warn");
+    }
+    return;
+  }
   if(!a.running){ kioskFlash("warn",`#${a.bib} ${nm}`,"Cronómetro en pausa · reanuda desde el Tablero"); beep("warn"); return; }
   lap(a.bib);   // marca el split actual y avanza (misma lógica que el botón Marcar)
   if(navigator.vibrate) navigator.vibrate([80,60,80]);
