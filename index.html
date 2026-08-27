@@ -578,7 +578,9 @@ function cardHtml(a){
   let actions;
   const canUndo = (a._undo && a._undo.length>0);
   if(a.finished){ actions=`<div class="donebar">Carrera completa<small>Run ${fmtShort(runMs(a))} · Estac. ${fmtShort(stationMs(a))}</small><button class="undo-btn undo-fin" onclick="undoLast(${a.bib})" title="Reabrir / deshacer finalización">↩ Deshacer</button></div>`; }
-  else if(st==="waiting"){ actions=`<div class="actions"><button class="start-btn" onclick="startRun(${a.bib})">▶ Iniciar</button></div>`; }
+  else if(st==="waiting"){ actions = a.nfcId
+      ? `<div class="actions"><button class="start-btn" onclick="startRun(${a.bib})">▶ Iniciar</button></div>`
+      : `<div class="actions"><button class="start-btn" style="background:var(--surface2)!important;color:var(--muted)!important" onclick="toast('Vincula la pulsera en la pestaña Atletas antes de iniciar')">⬡ Falta vincular pulsera</button></div>`; }
   else{ actions=`<div class="actions">
       <button class="mark-btn ${isStation?'station':''}" onclick="lap(${a.bib})">Marcar ${a.idx+1}/16</button>
       ${(canUndo||a.idx>0)?`<button class="undo-btn" onclick="undoLast(${a.bib})" title="Deshacer última marca">↩</button>`:""}
@@ -587,15 +589,15 @@ function cardHtml(a){
     </div>`; }
   const isWaiting=st==="waiting";
   const sel=isWaiting&&waveSel.has(a.bib);
-  const selChk=isWaiting?`<button class="wave-check ${sel?'on':''}" onclick="toggleWave(${a.bib})" title="Habilitar salida (pulsera o tanda)">${sel?'✓':''}</button>`:"";
+  const selChk=(isWaiting&&a.nfcId)?`<button class="wave-check ${sel?'on':''}" onclick="toggleWave(${a.bib})" title="Habilitar salida (pulsera o tanda)">${sel?'✓':''}</button>`:"";
   return `<div class="acard ${st==='active'?'running':''} ${typeCls} ${sel?'sel':''}">
     <div class="top">${selChk}<span class="bib">#${a.bib}</span><span class="nm">${esc(a.name)}</span><span class="cat">${a.cat}</span></div>
     ${segArea}${clockArea}${actions}
   </div>`;
 }
 
-function startRun(bib){ const a=g(bib); pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; renderBoard(); push(); }
-function toggleWave(bib){ if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
+function startRun(bib){ const a=g(bib); if(!a) return; if(!a.nfcId){ toast(`#${a.bib} ${a.name.split(" ")[0]} no tiene pulsera vinculada`); return; } pushUndo(a,'start'); a.startTs=Date.now(); a.running=true; a.idx=0; a.elapsed=0; renderBoard(); push(); }
+function toggleWave(bib){ const a=g(bib); if(a && !a.nfcId){ toast("Vincula la pulsera antes de habilitar la salida"); return; } if(waveSel.has(bib)) waveSel.delete(bib); else waveSel.add(bib); renderBoard(); }
 function clearWave(){ waveSel.clear(); renderBoard(); }
 function renderWaveBar(){
   const bar=document.getElementById("waveBar"); if(!bar) return;
@@ -609,13 +611,15 @@ function renderWaveBar(){
     <button class="wave-start" onclick="startWave()">▶ Iniciar tanda (${n})</button>`;
 }
 function startWave(){
-  const grupo=state.athletes.filter(a=>waveSel.has(a.bib)&&athleteStatus(a)==="waiting");
-  if(!grupo.length){ toast("Selecciona atletas por salir"); return; }
+  const sel=state.athletes.filter(a=>waveSel.has(a.bib)&&athleteStatus(a)==="waiting");
+  const grupo=sel.filter(a=>a.nfcId);                 // solo con pulsera vinculada
+  const sinPulsera=sel.length-grupo.length;
+  if(!grupo.length){ toast(sinPulsera?"Sin pulsera vinculada: no pueden iniciar":"Selecciona atletas por salir"); return; }
   const ts=Date.now();  // mismo timestamp para toda la tanda: salida idéntica
   grupo.forEach(a=>{ pushUndo(a,'start'); a.startTs=ts; a.running=true; a.idx=0; a.elapsed=0; });
   const n=grupo.length;
   waveSel.clear(); renderBoard(); push();
-  toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez");
+  toast(n+" atleta"+(n>1?"s":"")+" iniciados a la vez"+(sinPulsera?` · ${sinPulsera} sin pulsera omitido${sinPulsera>1?"s":""}`:""));
 }
 function renderStats(){
   const el=document.getElementById("boardStats"); if(!el) return;
