@@ -69,6 +69,7 @@
   .a-bib{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:38px}
   .a-name{flex:1 1 auto;min-width:0;font-weight:600}
   .a-cat{font-size:12px;color:var(--muted)}
+  .segnow{font-family:var(--mono);color:var(--accent);font-weight:700;white-space:nowrap}
 
   .board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 4px;flex-wrap:wrap}
   .board-head h2{font-size:18px}
@@ -740,6 +741,7 @@ function undoLast(bib){
 
 setInterval(()=>{
   document.querySelectorAll(".clk[data-bib]").forEach(el=>{ const a=g(parseInt(el.dataset.bib,10)); if(a && a.running) el.textContent=clk(liveElapsed(a)); });
+  document.querySelectorAll(".segnow[data-segnow]").forEach(el=>{ const a=g(parseInt(el.dataset.segnow,10)); if(a && a.running){ const ms=currentStepMs(a); el.textContent = ms!=null?clk(ms):"—"; } });
   if(currentView==="results"){
     document.querySelectorAll(".t[data-restotal]").forEach(el=>{ const a=g(parseInt(el.dataset.restotal,10)); if(a && a.running) el.textContent=fmt(liveElapsed(a)); });
   }
@@ -766,6 +768,14 @@ function currentSplitText(a){
   const s=a.steps[d];
   const seg=Math.floor(d/2)+1;
   return (s.type==="run"?"R"+seg:"E"+seg)+" · "+s.label;
+}
+// Tiempo transcurrido en la ETAPA actual = total en vivo - suma de segmentos ya completados.
+function currentStepMs(a){
+  if(a.finished) return null;
+  const d=doneCount(a);
+  if(d>=a.steps.length) return null;
+  if(!a.running && (a.elapsed||0)===0) return null; // aún «Por salir»
+  return Math.max(0, liveElapsed(a) - sumPrev(a, d));
 }
 function sortRes(k){ if(sortKey===k) sortDir*=-1; else {sortKey=k;sortDir=1;} renderResults(); }
 function renderResults(){
@@ -799,7 +809,7 @@ function renderResults(){
     <td class="rank">${a.finished?a._rank:"–"}</td>
     <td><a href="#" onclick="showDetail(${a.bib});return false" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--muted)">#${a.bib} ${esc(a.name)}</a></td>
     <td>${a.cat}</td><td class="t" data-restotal="${a.bib}">${fmt(liveElapsed(a))}</td><td class="t">${fmtShort(runMs(a))}</td><td class="t">${fmtShort(stationMs(a))}</td>
-    <td class="splitcell">${doneCount(a)}/16 · ${esc(currentSplitText(a))}</td>
+    <td class="splitcell">${doneCount(a)}/16 · ${esc(currentSplitText(a))}${a.finished?"":` · ⏱ <span class="segnow" data-segnow="${a.bib}">${currentStepMs(a)!=null?clk(currentStepMs(a)):"—"}</span>`}</td>
     <td>${a.finished?'<span class="pill" style="background:rgba(29,158,117,.15);color:#5dcaa5">Final</span>':'<span class="pill" style="background:rgba(239,159,39,.15);color:#fac775">En curso</span>'}</td></tr>`).join("");
 }
 function showDetail(bib){
@@ -864,7 +874,7 @@ function renderTv(){
       <td class="tvsplit"><span class="lbl">Estaciones</span>${fmtShort(stationMs(a))}</td>
       <td class="tvsplit"><span class="lbl">Avance</span>${doneCount(a)}/16</td>
       <td class="tvsplit"><span class="lbl">${lastLbl?esc(lastLbl):"—"}</span>${fmtShort(lastSplitMs(a))}</td>
-      <td><div class="tvtotal" data-bib="${a.bib}">${fmt(liveElapsed(a))}</div>${a.finished?'<span class="badge-fin">Final</span>':'<span class="badge-run">'+esc(cur||"En curso")+'</span>'}</td>
+      <td><div class="tvtotal" data-bib="${a.bib}">${fmt(liveElapsed(a))}</div>${a.finished?'<span class="badge-fin">Final</span>':'<span class="badge-run">'+esc(cur||"En curso")+(currentStepMs(a)!=null?' · <span class="segnow" data-segnow="'+a.bib+'">'+clk(currentStepMs(a))+'</span>':'')+'</span>'}</td>
     </tr>`;
   }).join("");
   cont.innerHTML=head+`<table class="tvtable"><thead><tr><th class="num">Pos</th><th>Atleta</th><th>Σ Run</th><th>Σ Estac.</th><th>Avance</th><th>Último split</th><th class="num">Tiempo total</th></tr></thead><tbody>${rows}</tbody></table>
