@@ -57,9 +57,9 @@
   .athlete-add{display:flex;gap:8px}
   .import-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .athlete-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
-  .a-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px}
+  .a-item{display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px}
   .a-bib{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:38px}
-  .a-name{flex:1;font-weight:600}
+  .a-name{flex:1 1 auto;min-width:0;font-weight:600}
   .a-cat{font-size:12px;color:var(--muted)}
 
   .board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 4px;flex-wrap:wrap}
@@ -370,6 +370,7 @@ function buildSteps(){
 let sessionId = localStorage.getItem("hyrox_session") || "sabado";
 let state = loadLocal() || { athletes:[], nextBib:1 };
 let sortKey="total", sortDir=1, applyingRemote=false;
+let lastSyncJson=null;
 let boardFilter="all", currentView="setup";
 let bc=null;  // canal entre ventanas del mismo navegador (TV/atleta sin Firebase)
 // El estado «armado» (listo para salir con pulsera) vive en a.armed y SÍ se sincroniza entre dispositivos.
@@ -400,18 +401,18 @@ function listenRemote(){
   if(!db) return;
   onValue(ref(db, dbPath()), (snap)=>{
     const val=snap.val();
-    if(val && val.athletes){
-      // Solo aplicar el estado remoto si es al menos tan reciente como el local.
-      // Evita que un estado vacío/antiguo en Firebase borre el avance local
-      // recién restaurado tras un refresh.
-      if((val._ts||0) >= (state._ts||0)){
-        applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false;
-        setSync("on","Sincronizado · sesión: "+sessionId);
-      } else {
-        // El local es más reciente: publícalo para no perderlo.
-        push();
-      }
-    }
+    if(!val || !val.athletes){ setSync("on","Sincronizado · sesión: "+sessionId); return; }
+    // El remoto es la fuente de verdad y siempre gana, SIN comparar relojes
+    // (el reloj del celular y el de la PC difieren, y esa comparación era la que
+    // impedía que un segundo dispositivo viera los atletas hasta pulsar «Aplicar»).
+    // Única excepción: un remoto VACÍO no debe borrar datos locales; en ese caso
+    // republicamos los nuestros.
+    if(val.athletes.length===0 && state.athletes && state.athletes.length){ push(); return; }
+    const incoming=JSON.stringify(val);
+    if(incoming===lastSyncJson) return; // sin cambios reales o eco de nuestra propia escritura
+    lastSyncJson=incoming;
+    applyingRemote=true; state=val; saveLocal(); renderAll(); applyingRemote=false;
+    setSync("on","Sincronizado · sesión: "+sessionId);
   }, (err)=>{ console.error(err); setSync("off","Sin conexión — guardando local"); });
 }
 function broadcastLocal(){ if(bc){ try{ bc.postMessage({state}); }catch(e){} } }
@@ -435,15 +436,14 @@ function push(){
   if(db && !applyingRemote){
     try{
       // Sanitizar antes de enviar: Firebase rechaza `undefined` con un throw
-      // síncrono que rompía la sincronización hasta refrescar. El paso por JSON
-      // convierte undefined→null en arreglos y elimina propiedades undefined.
+      // síncrono. El paso por JSON convierte undefined->null en arreglos y
+      // elimina propiedades undefined.
       const clean=JSON.parse(JSON.stringify(state));
+      lastSyncJson=JSON.stringify(clean); // marca nuestra propia escritura para no re-aplicarla como eco
       const p=set(ref(db, dbPath()), clean);
       if(p && typeof p.catch==="function") p.catch(e=>{ console.error("sync:",e); setSync("off","Reintentando…"); });
     }catch(e){
-      // Un fallo SÍNCRONO al escribir en Firebase no debe romper el flujo:
-      // el estado ya se guardó en local y la UI debe seguir actualizándose.
-      console.error("sync (sincrónico):",e);
+      console.error("sync (síncrono):",e);
       setSync("off","Guardando local (sync no disponible)");
     }
   }
